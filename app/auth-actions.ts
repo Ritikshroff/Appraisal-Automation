@@ -1,8 +1,7 @@
 "use server";
 
 import { hash } from "bcryptjs";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, Role } from "@prisma/client";
+import { Role } from "@prisma/client";
 import { AuthError } from "next-auth";
 
 import { signIn, signOut } from "@/auth";
@@ -10,35 +9,7 @@ import type { SignUpState } from "@/lib/types";
 
 const defaultState: SignUpState = { error: null };
 
-const globalForServerPrisma = globalThis as unknown as {
-  serverPrismaAdapter?: PrismaPg;
-  serverPrisma?: PrismaClient;
-};
-
-function getServerPrisma() {
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    throw new Error("DATABASE_URL is not configured.");
-  }
-
-  const adapter = globalForServerPrisma.serverPrismaAdapter ?? new PrismaPg({ connectionString });
-  const prisma =
-    globalForServerPrisma.serverPrisma ??
-    new PrismaClient({
-      adapter,
-      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-    });
-
-  if (process.env.NODE_ENV !== "production") {
-    globalForServerPrisma.serverPrismaAdapter = adapter;
-    globalForServerPrisma.serverPrisma = prisma;
-  }
-
-  return prisma;
-}
-
-const prisma = getServerPrisma();
+import { prisma } from "@/lib/prisma";
 
 export async function loginAction(_: SignUpState, formData: FormData): Promise<SignUpState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();

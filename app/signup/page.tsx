@@ -1,41 +1,9 @@
 import { redirect } from "next/navigation";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
-
+import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { AuthForm } from "@/components/auth-form";
 
 export const dynamic = "force-dynamic";
-
-const globalForServerPrisma = globalThis as unknown as {
-  serverPrismaAdapter?: PrismaPg;
-  serverPrisma?: PrismaClient;
-};
-
-function getServerPrisma() {
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    throw new Error("DATABASE_URL is not configured.");
-  }
-
-  const adapter = globalForServerPrisma.serverPrismaAdapter ?? new PrismaPg({ connectionString });
-  const prisma =
-    globalForServerPrisma.serverPrisma ??
-    new PrismaClient({
-      adapter,
-      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-    });
-
-  if (process.env.NODE_ENV !== "production") {
-    globalForServerPrisma.serverPrismaAdapter = adapter;
-    globalForServerPrisma.serverPrisma = prisma;
-  }
-
-  return prisma;
-}
-
-const prisma = getServerPrisma();
 
 export default async function SignupPage() {
   const session = await auth();

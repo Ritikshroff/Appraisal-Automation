@@ -1,5 +1,4 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-import { AppraisalStatus, Prisma, PrismaClient, Role } from "@prisma/client";
+import { AppraisalStatus, Prisma, Role } from "@prisma/client";
 
 import {
   calculateAverage,
@@ -29,35 +28,7 @@ import type {
   TeamSummary,
 } from "@/lib/types";
 
-const globalForServerPrisma = globalThis as unknown as {
-  serverPrismaAdapter?: PrismaPg;
-  serverPrisma?: PrismaClient;
-};
-
-function getServerPrisma() {
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    throw new Error("DATABASE_URL is not configured.");
-  }
-
-  const adapter = globalForServerPrisma.serverPrismaAdapter ?? new PrismaPg({ connectionString });
-  const prisma =
-    globalForServerPrisma.serverPrisma ??
-    new PrismaClient({
-      adapter,
-      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-    });
-
-  if (process.env.NODE_ENV !== "production") {
-    globalForServerPrisma.serverPrismaAdapter = adapter;
-    globalForServerPrisma.serverPrisma = prisma;
-  }
-
-  return prisma;
-}
-
-const prisma = getServerPrisma();
+import { prisma } from "@/lib/prisma";
 
 const appraisalInclude = Prisma.validator<Prisma.AppraisalInclude>()({
   cycle: true,

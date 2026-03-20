@@ -21,11 +21,11 @@ type AuthUserRow = {
 function getAuthPool() {
   const connectionString = process.env.DATABASE_URL;
 
-  if (!connectionString) {
+  if (!connectionString && process.env.NEXT_PHASE !== "phase-production-build") {
     throw new Error("DATABASE_URL is not configured.");
   }
 
-  const pool = globalForAuthDb.authPool ?? new Pool({ connectionString });
+  const pool = (globalForAuthDb.authPool ?? (connectionString ? new Pool({ connectionString }) : undefined)) as Pool | undefined;
 
   if (process.env.NODE_ENV !== "production") {
     globalForAuthDb.authPool = pool;
@@ -36,6 +36,7 @@ function getAuthPool() {
 
 async function findUserByEmail(email: string) {
   const pool = getAuthPool();
+  if (!pool) return null;
   const result = await pool.query<AuthUserRow>(
     `
       SELECT
@@ -58,6 +59,7 @@ async function findUserByEmail(email: string) {
 
 async function findUserById(id: string) {
   const pool = getAuthPool();
+  if (!pool) return null;
   const result = await pool.query<AuthUserRow>(
     `
       SELECT

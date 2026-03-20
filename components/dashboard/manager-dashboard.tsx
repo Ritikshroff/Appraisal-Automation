@@ -19,6 +19,7 @@ const listStatusAccent: Record<AppraisalStatusValue, string> = {
   MANAGER_REVIEW: "bg-amber-100 text-amber-700",
   COMPLETED: "bg-emerald-100 text-emerald-700",
 };
+// fix
 
 export function ManagerDashboard({ dashboardData, isLoading, onPageChange }: ManagerDashboardProps) {
   return (
@@ -78,9 +79,9 @@ export function ManagerDashboard({ dashboardData, isLoading, onPageChange }: Man
             </div>
           ))}
           {!dashboardData.teamSummary.length && !isLoading && (
-             <div className="rounded-[24px] border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
-                No team summary data available.
-             </div>
+            <div className="rounded-[24px] border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+              No team summary data available.
+            </div>
           )}
         </div>
       </DataTable>

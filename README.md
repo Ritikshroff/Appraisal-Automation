@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cybermedia Appraisal Platform
 
-## Getting Started
+Secure, role-based internal appraisal platform for Cybermedia built with Next.js App Router, Tailwind CSS, Prisma, PostgreSQL, NextAuth, and OpenAI.
 
-First, run the development server:
+## Stack
+
+- Frontend: Next.js 16 App Router + Tailwind CSS
+- Backend: Next.js API routes
+- Database: PostgreSQL + Prisma ORM + `@prisma/adapter-pg`
+- AI: OpenAI Responses API with deterministic fallback when `OPENAI_API_KEY` is absent
+
+## Features
+
+- Email and password authentication with persistent sessions via NextAuth
+- Strict role-based access for `EMPLOYEE`, `MANAGER`, and `CEO`
+- Team-based organization with fixed manager ownership
+- Structured appraisal flow: Employee submission -> Manager review -> CEO final decision
+- Support for work and salary appraisals across multiple cycles
+- Multi-step appraisal forms with long answers, KRAs, skill ratings, manager review, and CEO decision
+- AI-generated summary, sentiment, strengths, weaknesses, and risk signals
+- Role-based dashboards for employees, managers, and the CEO
+- Seeded demo teams, employees, managers, CEO, and appraisal data
+
+## Setup
+
+1. Copy the environment template:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Update database and auth values in `.env`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+DATABASE_URL="..."
+DIRECT_URL="..."
+AUTH_SECRET="replace-with-a-long-random-secret"
+OPENAI_API_KEY=""
+OPENAI_MODEL="gpt-5.2"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Push the schema and seed the database:
 
-## Learn More
+```bash
+pnpm exec prisma db push --url "$DIRECT_URL"
+pnpm run db:seed
+```
 
-To learn more about Next.js, take a look at the following resources:
+4. Start the app:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open `http://localhost:3000`.
 
-## Deploy on Vercel
+## Demo Credentials
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+All seeded users use the same password:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+Cybermedia@123
+```
+
+Sample accounts:
+
+- CEO: `meera.kapoor@cmrsl.example`
+- Tech Manager: `anita.rao@cmrsl.example`
+- Employee: `rahul.sharma@cmrsl.example`
+
+## Available Scripts
+
+```bash
+pnpm dev
+pnpm build
+pnpm lint
+pnpm db:generate
+pnpm db:push
+pnpm db:migrate
+pnpm db:seed
+pnpm db:studio
+```
+
+## API Endpoints
+
+- `GET /api/dashboard`
+- `GET /api/appraisals?appraisalId=<id>`
+- `POST /api/appraisals/save`
+- `POST /api/appraisals/submit`
+
+## Notes
+
+- The app remains functional without `OPENAI_API_KEY` by falling back to deterministic analysis logic.
+- Signup creates employee accounts only. Manager and CEO access comes from seeded internal users.
+- All server routes enforce role-based access before reading or mutating appraisal data.

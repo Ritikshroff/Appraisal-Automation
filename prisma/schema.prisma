@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  CEO
+}
+
+enum AppraisalType {
+  WORK
+  SALARY
+}
+
+enum AppraisalStatus {
+  DRAFT
+  SUBMITTED
+  MANAGER_REVIEW
+  COMPLETED
+}
+
+enum SentimentLabel {
+  POSITIVE
+  NEUTRAL
+  MIXED
+  CONCERNING
+}
+
+model Team {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  managerId  String?     @unique
+  manager    Employee?   @relation("TeamManager", fields: [managerId], references: [id])
+  members    Employee[]  @relation("TeamMembers")
+  users      User[]
+  appraisals Appraisal[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Employee {
+  id                 String      @id @default(cuid())
+  employeeCode       String      @unique
+  fullName           String
+  email              String      @unique
+  department         String
+  designation        String
+  role               Role        @default(EMPLOYEE)
+  teamId             String?
+  managerId          String?
+  manager            Employee?   @relation("ManagerReports", fields: [managerId], references: [id])
+  directReports      Employee[]  @relation("ManagerReports")
+  team               Team?       @relation("TeamMembers", fields: [teamId], references: [id])
+  managedTeam        Team?       @relation("TeamManager")
+  user               User?
+  appraisals         Appraisal[] @relation("EmployeeAppraisals")
+  managedAppraisals  Appraisal[] @relation("AppraisalManager")
+  approvedAppraisals Appraisal[] @relation("AppraisalCEO")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([managerId])
+  @@index([teamId])
+  @@index([department])
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         Role      @default(EMPLOYEE)
+  teamId       String?
+  employeeId   String?   @unique
+  team         Team?     @relation(fields: [teamId], references: [id])
+  employee     Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([role])
+  @@index([teamId])
+}
+
+model AppraisalCycle {
+  id            String        @id @default(cuid())
+  name          String
+  appraisalType AppraisalType
+  periodLabel   String
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean       @default(false)
+  appraisals    Appraisal[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([isActive, appraisalType])
+}
+
+model Appraisal {
+  id                   String          @id @default(cuid())
+  employeeId           String
+  teamId               String
+  cycleId              String
+  managerId            String?
+  ceoId                String?
+  type                 AppraisalType
+  appraisalPeriod      String
+  status               AppraisalStatus @default(DRAFT)
+  sectionOneAnswers    Json?
+  managerReview        Json?
+  ceoReview            Json?
+  managerOverallRating Decimal?        @db.Decimal(4, 2)
+  finalRating          Decimal?        @db.Decimal(4, 2)
+  hikePercentage       Decimal?        @db.Decimal(5, 2)
+  aiPerformanceSummary String?         @db.Text
+  sentimentLabel       SentimentLabel?
+  sentimentScore       Decimal?        @db.Decimal(4, 2)
+  aiStrengths          Json?
+  aiWeaknesses         Json?
+  aiRiskSignals        Json?
+  employeeSubmittedAt  DateTime?
+  managerSubmittedAt   DateTime?
+  ceoSubmittedAt       DateTime?
+  analyzedAt           DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  cycle                AppraisalCycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  team                 Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  employee             Employee        @relation("EmployeeAppraisals", fields: [employeeId], references: [id], onDelete: Cascade)
+  manager              Employee?       @relation("AppraisalManager", fields: [managerId], references: [id])
+  ceo                  Employee?       @relation("AppraisalCEO", fields: [ceoId], references: [id])
+  kras                 KRA[]
+  skillRatings         SkillRating[]
+
+  @@unique([employeeId, cycleId])
+  @@index([cycleId, status])
+  @@index([teamId, status])
+  @@index([employeeId, status])
+  @@index([managerId, status])
+}
+
+model KRA {
+  id              String    @id @default(cuid())
+  appraisalId     String
+  objective       String
+  weightage       Decimal   @db.Decimal(5, 2)
+  appraiseeRating Decimal?  @db.Decimal(4, 2)
+  appraiserRating Decimal?  @db.Decimal(4, 2)
+  comments        String?   @db.Text
+  displayOrder    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  appraisal       Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+
+  @@index([appraisalId, displayOrder])
+}
+
+model SkillRating {
+  id             String    @id @default(cuid())
+  appraisalId    String
+  skillName      String
+  employeeRating Int?
+  managerRating  Int?
+  displayOrder   Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  appraisal      Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+
+  @@index([appraisalId, displayOrder])
+}

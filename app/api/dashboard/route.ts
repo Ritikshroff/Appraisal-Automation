@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getDashboardData, isUserContextError } from "@/lib/appraisal-service";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function parsePage(value: string | null) {
   const parsed = Number(value);

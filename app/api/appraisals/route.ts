@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getAppraisalDetail, isUserContextError } from "@/lib/appraisal-service";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {

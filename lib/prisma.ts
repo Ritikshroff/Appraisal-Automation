@@ -6,28 +6,46 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
-const connectionString = process.env.DATABASE_URL;
+let prismaInstance: PrismaClient | null = null;
 
-// On certain build phases (like pre-rendering), environment variables may not be fully loaded.
-// We avoid throwing at top-level to prevent build failures for non-dynamic routes.
-if (!connectionString && process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
-  console.warn("WARNING: DATABASE_URL is not configured.");
-}
+export function getPrisma(): PrismaClient {
+  if (prismaInstance) return prismaInstance;
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
 
-const adapter = (globalForPrisma.prismaAdapter ?? 
-  (connectionString ? new PrismaPg({ connectionString }) : undefined)) as PrismaPg | undefined;
+  const connectionString = process.env.DATABASE_URL;
 
-const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    ...(adapter ? { adapter } : {}),
+  // We only throw at runtime when the client is actually needed
+  if (!connectionString) {
+    if (process.env.NEXT_PHASE === "phase-production-build") {
+      // Return a dummy client or just a proxy during build to avoid constructor errors
+      // But actually, it's safer to just return a partially initialized one if possible
+      // or just wait.
+    }
+    throw new Error("DATABASE_URL is not configured. Please check your environment variables.");
+  }
+
+  const adapter = globalForPrisma.prismaAdapter ?? new PrismaPg({ connectionString });
+  
+  prismaInstance = new PrismaClient({
+    adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prismaAdapter = adapter;
-  globalForPrisma.prisma = prisma;
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prismaAdapter = adapter;
+    globalForPrisma.prisma = prismaInstance;
+  }
+
+  return prismaInstance;
 }
 
-export { prisma };
+// Export a proxy as the default 'prisma' object
+// This ensures 'new PrismaClient' is only called when someone actually touches 'prisma.user', etc.
+export const prisma = new Proxy({} as PrismaClient, {
+  get(target, prop, receiver) {
+    const instance = getPrisma();
+    return Reflect.get(instance, prop, receiver);
+  },
+});
+
 export default prisma;

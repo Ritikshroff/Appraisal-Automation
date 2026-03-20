@@ -1,95 +1,65 @@
-# Cybermedia Appraisal Platform
+# Cybermedia Appraisal Management System
 
-Secure, role-based internal appraisal platform for Cybermedia built with Next.js App Router, Tailwind CSS, Prisma, PostgreSQL, NextAuth, and OpenAI.
+Internal role-based appraisal platform for performance reviews and salary calibration.
 
-## Stack
+## 🔐 Demo Login Credentials
 
-- Frontend: Next.js 16 App Router + Tailwind CSS
-- Backend: Next.js API routes
-- Database: PostgreSQL + Prisma ORM + `@prisma/adapter-pg`
-- AI: OpenAI Responses API with deterministic fallback when `OPENAI_API_KEY` is absent
+> [!IMPORTANT]
+> All accounts use the same default password: **`Cybermedia@123`**
 
-## Features
+### 🏢 Organization Leadership (CEO)
 
-- Email and password authentication with persistent sessions via NextAuth
-- Strict role-based access for `EMPLOYEE`, `MANAGER`, and `CEO`
-- Team-based organization with fixed manager ownership
-- Structured appraisal flow: Employee submission -> Manager review -> CEO final decision
-- Support for work and salary appraisals across multiple cycles
-- Multi-step appraisal forms with long answers, KRAs, skill ratings, manager review, and CEO decision
-- AI-generated summary, sentiment, strengths, weaknesses, and risk signals
-- Role-based dashboards for employees, managers, and the CEO
-- Seeded demo teams, employees, managers, CEO, and appraisal data
+| Name | Email | Role |
+| :--- | :--- | :--- |
+| Meera Kapoor | `meera.kapoor@cmrsl.example` | CEO (Full Visibility & Final Calibration) |
 
-## Setup
+### 👥 Management Team (Managers)
 
-1. Copy the environment template:
+| Name | Email | Department |
+| :--- | :--- | :--- |
+| Anita Rao | `anita.rao@cmrsl.example` | Engineering Manager (Tech Team) |
+| Vikram Singh | `vikram.singh@cmrsl.example` | Media Manager (Media Team) |
 
-```bash
-cp .env.example .env
-```
+### 💻 Staff Members (Employees)
 
-2. Update database and auth values in `.env`:
+| Name | Email | Department |
+| :--- | :--- | :--- |
+| Rahul Sharma | `rahul.sharma@cmrsl.example` | Tech (Senior Software Engineer) |
+| Priya Nair | `priya.nair@cmrsl.example` | Tech (Frontend Engineer) |
+| Sneha Patel | `sneha.patel@cmrsl.example` | Media (Content Strategist) |
 
-```bash
-DATABASE_URL="..."
-DIRECT_URL="..."
-AUTH_SECRET="replace-with-a-long-random-secret"
-OPENAI_API_KEY=""
-OPENAI_MODEL="gpt-5.2"
-```
+---
 
-3. Push the schema and seed the database:
+## 🚀 Technical Stack
 
-```bash
-pnpm exec prisma db push --url "$DIRECT_URL"
-pnpm run db:seed
-```
+- **Framework**: Next.js 15+ (App Router)
+- **Database**: PostgreSQL with Prisma ORM
+- **Auth**: NextAuth.js v5 (Beta)
+- **Insights**: OpenAI API (GPT-4o)
+- **Styling**: Tailwind CSS 4.0
 
-4. Start the app:
+## 🛠️ Development Setup
 
-```bash
-pnpm dev
-```
+1. **Install dependencies**:
 
-Open `http://localhost:3000`.
+   ```bash
+   pnpm install
+   ```
 
-## Demo Credentials
+2. **Database Setup**:
 
-All seeded users use the same password:
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   npx prisma db seed
+   ```
 
-```bash
-Cybermedia@123
-```
+3. **Run Dev Server**:
 
-Sample accounts:
+   ```bash
+   npm run dev
+   ```
 
-- CEO: `meera.kapoor@cmrsl.example`
-- Tech Manager: `anita.rao@cmrsl.example`
-- Employee: `rahul.sharma@cmrsl.example`
+## 📜 Deployment Note
 
-## Available Scripts
-
-```bash
-pnpm dev
-pnpm build
-pnpm lint
-pnpm db:generate
-pnpm db:push
-pnpm db:migrate
-pnpm db:seed
-pnpm db:studio
-```
-
-## API Endpoints
-
-- `GET /api/dashboard`
-- `GET /api/appraisals?appraisalId=<id>`
-- `POST /api/appraisals/save`
-- `POST /api/appraisals/submit`
-
-## Notes
-
-- The app remains functional without `OPENAI_API_KEY` by falling back to deterministic analysis logic.
-- Signup creates employee accounts only. Manager and CEO access comes from seeded internal users.
-- All server routes enforce role-based access before reading or mutating appraisal data.
+This application uses a Lazy Proxy pattern for Prisma to ensure stability during Next.js build phases on platforms like Vercel. Database URL checks are deferred to runtime.

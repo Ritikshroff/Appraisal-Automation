@@ -6,19 +6,26 @@ import { AuthForm } from "@/components/auth-form";
 export const dynamic = "force-dynamic";
 
 export default async function SignupPage() {
-  const session = await auth();
+  let teams: Array<{ id: string; name: string }> = [];
 
-  if (session?.user?.id) {
-    redirect("/");
+  try {
+    const session = await auth();
+
+    if (session?.user?.id) {
+      redirect("/");
+    }
+
+    teams = await prisma.team.findMany({
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+  } catch (error) {
+    console.error("Signup Page initialization error:", error);
+    // Continue rendering even if teams couldn't be loaded, or it will trigger error.tsx
   }
-
-  const teams = await prisma.team.findMany({
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-    },
-  });
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center gap-10 px-4 py-10 sm:px-6 lg:px-8">

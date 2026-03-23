@@ -37,47 +37,57 @@ function getAuthPool() {
 async function findUserByEmail(email: string) {
   const pool = getAuthPool();
   if (!pool) return null;
-  const result = await pool.query<AuthUserRow>(
-    `
-      SELECT
-        id,
-        email,
-        "passwordHash",
-        name,
-        role,
-        "teamId",
-        "employeeId"
-      FROM "User"
-      WHERE email = $1
-      LIMIT 1
-    `,
-    [email],
-  );
+  try {
+    const result = await pool.query<AuthUserRow>(
+      `
+        SELECT
+          id,
+          email,
+          "passwordHash",
+          name,
+          role,
+          "teamId",
+          "employeeId"
+        FROM "User"
+        WHERE email = $1
+        LIMIT 1
+      `,
+      [email],
+    );
 
-  return result.rows[0] ?? null;
+    return result.rows[0] ?? null;
+  } catch (error) {
+    console.error("Auth helper findUserByEmail error:", error);
+    return null;
+  }
 }
 
 async function findUserById(id: string) {
   const pool = getAuthPool();
   if (!pool) return null;
-  const result = await pool.query<AuthUserRow>(
-    `
-      SELECT
-        id,
-        email,
-        "passwordHash",
-        name,
-        role,
-        "teamId",
-        "employeeId"
-      FROM "User"
-      WHERE id = $1
-      LIMIT 1
-    `,
-    [id],
-  );
+  try {
+    const result = await pool.query<AuthUserRow>(
+      `
+        SELECT
+          id,
+          email,
+          "passwordHash",
+          name,
+          role,
+          "teamId",
+          "employeeId"
+        FROM "User"
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [id],
+    );
 
-  return result.rows[0] ?? null;
+    return result.rows[0] ?? null;
+  } catch (error) {
+    console.error("Auth helper findUserById error:", error);
+    return null;
+  }
 }
 
 const developmentSecret = "cybermedia-dev-auth-secret-change-me";

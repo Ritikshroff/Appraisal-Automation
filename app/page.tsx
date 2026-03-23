@@ -49,13 +49,13 @@ export default async function Home({
     topPerformersPage?: string;
   }>;
 }) {
-  const session = await auth();
-
-  if (!session?.user?.id || !session.user.role) {
-    redirect("/login");
-  }
-
   try {
+    const session = await auth();
+
+    if (!session?.user?.id || !session.user.role) {
+      redirect("/login");
+    }
+
     const { view, appraisalId, q, appraisalsPage, pendingPage, teamStatusPage, topPerformersPage } = await searchParams;
     const dashboardData = await getDashboardData(session.user.id, {
       query: q ?? "",

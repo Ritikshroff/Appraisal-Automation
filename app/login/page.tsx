@@ -6,10 +6,15 @@ import { AuthForm } from "@/components/auth-form";
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
-  const session = await auth();
+  try {
+    const session = await auth();
 
-  if (session?.user?.id) {
-    redirect("/");
+    if (session?.user?.id) {
+      redirect("/");
+    }
+  } catch (error) {
+    console.error("Login Page session fetch error:", error);
+    // Continue rendering the login page even if session fetch fails
   }
 
   return (

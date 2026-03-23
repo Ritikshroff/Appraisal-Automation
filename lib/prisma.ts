@@ -1,38 +1,37 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
 
 const globalForPrisma = globalThis as unknown as {
-  prismaAdapter?: PrismaPg;
   prisma?: PrismaClient;
+  pgPool?: Pool;
 };
 
-let prismaInstance: PrismaClient | null = null;
-
 export function getPrisma(): PrismaClient {
-  if (prismaInstance) return prismaInstance;
   if (globalForPrisma.prisma) return globalForPrisma.prisma;
 
   const connectionString = process.env.DATABASE_URL;
 
   // We only throw at runtime when the client is actually needed
   if (!connectionString) {
-    if (process.env.NEXT_PHASE === "phase-production-build") {
-      // Return a dummy client or just a proxy during build to avoid constructor errors
-      // But actually, it's safer to just return a partially initialized one if possible
-      // or just wait.
-    }
-    throw new Error("DATABASE_URL is not configured. Please check your environment variables.");
+    throw new Error("DATABASE_URL is not configured.");
   }
 
-  const adapter = globalForPrisma.prismaAdapter ?? new PrismaPg({ connectionString });
+  // Create a single pool with a small number of connections to avoid exceeding limits
+  const pool = globalForPrisma.pgPool ?? new Pool({ 
+    connectionString,
+    max: 2, // Small pool for development with PgBouncer session mode limits
+  });
+
+  const adapter = new PrismaPg(pool as any);
   
-  prismaInstance = new PrismaClient({
+  const prismaInstance = new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
   if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prismaAdapter = adapter;
+    globalForPrisma.pgPool = pool;
     globalForPrisma.prisma = prismaInstance;
   }
 

@@ -25,7 +25,7 @@ function getAuthPool() {
     throw new Error("DATABASE_URL is not configured.");
   }
 
-  const pool = (globalForAuthDb.authPool ?? (connectionString ? new Pool({ connectionString }) : undefined)) as Pool | undefined;
+  const pool = (globalForAuthDb.authPool ?? (connectionString ? new Pool({ connectionString, max: 2 }) : undefined)) as Pool | undefined;
 
   if (process.env.NODE_ENV !== "production") {
     globalForAuthDb.authPool = pool;

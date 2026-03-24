@@ -2,11 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { Role } from "@prisma/client";
-import { Pool } from "pg";
-
-const globalForAuthDb = globalThis as unknown as {
-  authPool?: Pool;
-};
+import { getPool } from "@/lib/prisma";
 
 type AuthUserRow = {
   id: string;
@@ -15,23 +11,12 @@ type AuthUserRow = {
   name: string;
   role: Role;
   teamId: string | null;
+  teamName: string | null;
   employeeId: string | null;
 };
 
 function getAuthPool() {
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString && process.env.NEXT_PHASE !== "phase-production-build") {
-    throw new Error("DATABASE_URL is not configured.");
-  }
-
-  const pool = (globalForAuthDb.authPool ?? (connectionString ? new Pool({ connectionString, max: 2 }) : undefined)) as Pool | undefined;
-
-  if (process.env.NODE_ENV !== "production") {
-    globalForAuthDb.authPool = pool;
-  }
-
-  return pool;
+  return getPool();
 }
 
 async function findUserByEmail(email: string) {
@@ -41,15 +26,17 @@ async function findUserByEmail(email: string) {
     const result = await pool.query<AuthUserRow>(
       `
         SELECT
-          id,
-          email,
-          "passwordHash",
-          name,
-          role,
-          "teamId",
-          "employeeId"
-        FROM "User"
-        WHERE email = $1
+          u.id,
+          u.email,
+          u."passwordHash",
+          u.name,
+          u.role,
+          u."teamId",
+          u."employeeId",
+          t.name as "teamName"
+        FROM "User" u
+        LEFT JOIN "Team" t ON t.id = u."teamId"
+        WHERE u.email = $1
         LIMIT 1
       `,
       [email],
@@ -66,18 +53,20 @@ async function findUserById(id: string) {
   const pool = getAuthPool();
   if (!pool) return null;
   try {
-    const result = await pool.query<AuthUserRow>(
+    const result = await pool.query<AuthUserRow & { teamName: string | null }>(
       `
         SELECT
-          id,
-          email,
-          "passwordHash",
-          name,
-          role,
-          "teamId",
-          "employeeId"
-        FROM "User"
-        WHERE id = $1
+          u.id,
+          u.email,
+          u."passwordHash",
+          u.name,
+          u.role,
+          u."teamId",
+          u."employeeId",
+          t.name as "teamName"
+        FROM "User" u
+        LEFT JOIN "Team" t ON t.id = u."teamId"
+        WHERE u.id = $1
         LIMIT 1
       `,
       [id],
@@ -133,6 +122,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           name: user.name,
           role: user.role,
           teamId: user.teamId,
+          teamName: user.teamName,
           employeeId: user.employeeId,
         };
       },
@@ -159,6 +149,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       token.role = currentUser.role;
       token.teamId = currentUser.teamId ?? null;
+      token.teamName = currentUser.teamName ?? null;
       token.employeeId = currentUser.employeeId ?? null;
       return token;
     },
@@ -167,6 +158,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.sub ?? "";
         session.user.role = (token.role as Role | undefined) ?? Role.EMPLOYEE;
         session.user.teamId = (token.teamId as string | null | undefined) ?? null;
+        session.user.teamName = (token.teamName as string | null | undefined) ?? null;
         session.user.employeeId = (token.employeeId as string | null | undefined) ?? null;
       }
 

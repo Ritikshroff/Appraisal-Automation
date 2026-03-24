@@ -158,6 +158,7 @@ export type AppraisalPermissions = {
   canEditEmployeeSection: boolean;
   canEditManagerSection: boolean;
   canEditCEOSection: boolean;
+  canEditKRASection: boolean;
   currentStageLabel: string;
   nextActionLabel: string | null;
 };
@@ -215,7 +216,7 @@ export type PerformanceAnalysis = {
   strengths: string[];
   weaknesses: string[];
   riskSignals: string[];
-  source: "openai" | "fallback";
+  source: "openai" | "gemini" | "fallback";
 };
 
 export type EditorState = {

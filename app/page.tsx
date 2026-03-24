@@ -1,20 +1,15 @@
 import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
 
 import { auth } from "@/auth";
 import { AppraisalDashboard } from "@/components/appraisal-dashboard";
 import { AppShell } from "@/components/app-shell";
 import { getDefaultViewForRole } from "@/lib/appraisal";
-import { getAppraisalDetail, getDashboardData, isUserContextError } from "@/lib/appraisal-service";
-import type { NavigationView } from "@/lib/types";
+import type { NavigationView, RoleValue, SessionUserSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-function parsePage(value: string | undefined) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
-}
-
-function resolveView(role: "EMPLOYEE" | "MANAGER" | "CEO", value: string | undefined): NavigationView {
+function resolveView(role: Role, value: string | undefined): NavigationView {
   const defaultView = getDefaultViewForRole(role) as NavigationView;
 
   if (!value) {
@@ -41,53 +36,30 @@ export default async function Home({
 }: {
   searchParams: Promise<{
     view?: string;
-    appraisalId?: string;
-    q?: string;
-    appraisalsPage?: string;
-    pendingPage?: string;
-    teamStatusPage?: string;
-    topPerformersPage?: string;
   }>;
 }) {
-  try {
-    const session = await auth();
+  const session = await auth();
 
-    if (!session?.user?.id || !session.user.role) {
-      redirect("/login");
-    }
-
-    const { view, appraisalId, q, appraisalsPage, pendingPage, teamStatusPage, topPerformersPage } = await searchParams;
-    const dashboardData = await getDashboardData(session.user.id, {
-      query: q ?? "",
-      visiblePage: parsePage(appraisalsPage),
-      pendingPage: parsePage(pendingPage),
-      teamStatusPage: parsePage(teamStatusPage),
-      topPerformersPage: parsePage(topPerformersPage),
-    });
-    const activeView = resolveView(session.user.role, view);
-    const initialAppraisalId =
-      appraisalId ??
-      dashboardData.pendingAppraisals.items[0]?.id ??
-      dashboardData.visibleAppraisals.items[0]?.id ??
-      null;
-    const initialAppraisal = initialAppraisalId
-      ? await getAppraisalDetail(session.user.id, initialAppraisalId)
-      : null;
-
-    return (
-      <AppShell user={dashboardData.viewer} activeView={activeView}>
-        <AppraisalDashboard
-          activeView={activeView}
-          initialDashboard={dashboardData}
-          initialAppraisal={initialAppraisal}
-        />
-      </AppShell>
-    );
-  } catch (error) {
-    if (isUserContextError(error)) {
-      redirect("/login");
-    }
-
-    throw error;
+  if (!session?.user?.id || !session.user.role) {
+    redirect("/login");
   }
+
+  const { view } = await searchParams;
+  const activeView = resolveView(session.user.role as Role, view);
+
+  const viewer: SessionUserSummary = {
+    id: session.user.id ?? "",
+    name: session.user.name ?? "",
+    email: session.user.email ?? "",
+    role: session.user.role as RoleValue,
+    teamId: session.user.teamId ?? null,
+    teamName: session.user.teamName ?? null,
+    employeeId: session.user.employeeId ?? null,
+  };
+
+  return (
+    <AppShell user={viewer} activeView={activeView}>
+      <AppraisalDashboard activeView={activeView} />
+    </AppShell>
+  );
 }

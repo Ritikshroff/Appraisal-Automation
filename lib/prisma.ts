@@ -7,22 +7,32 @@ const globalForPrisma = globalThis as unknown as {
   pgPool?: Pool;
 };
 
-export function getPrisma(): PrismaClient {
-  if (globalForPrisma.prisma) return globalForPrisma.prisma;
+export function getPool(): Pool {
+  if (globalForPrisma.pgPool) return globalForPrisma.pgPool;
 
   const connectionString = process.env.DATABASE_URL;
-
-  // We only throw at runtime when the client is actually needed
   if (!connectionString) {
     throw new Error("DATABASE_URL is not configured.");
   }
 
-  // Create a single pool with a small number of connections to avoid exceeding limits
-  const pool = globalForPrisma.pgPool ?? new Pool({ 
+  const pool = new Pool({
     connectionString,
-    max: 2, // Small pool for development with PgBouncer session mode limits
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 30000,
   });
 
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.pgPool = pool;
+  }
+
+  return pool;
+}
+
+export function getPrisma(): PrismaClient {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
+
+  const pool = getPool();
   const adapter = new PrismaPg(pool as any);
   
   const prismaInstance = new PrismaClient({

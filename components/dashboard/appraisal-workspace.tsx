@@ -9,6 +9,7 @@ import {
   Save,
   Search,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import type {
   AppraisalDetail,
@@ -121,7 +122,7 @@ export function AppraisalWorkspace({
           </div>
 
           <div className="mt-5 space-y-3">
-            {isDashboardLoading && dashboardData.visibleAppraisals.items.length === 0 ? (
+            {isDashboardLoading && dashboardData?.visibleAppraisals.items.length === 0 ? (
               Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-[24px]" />)
             ) : dashboardData.visibleAppraisals.items.length ? (
               dashboardData.visibleAppraisals.items.map((item) => (
@@ -185,7 +186,7 @@ export function AppraisalWorkspace({
             <Skeleton className="h-96 w-full rounded-[30px]" />
           </div>
         ) : !appraisalDetail ? (
-          <div className="panel-surface rounded-[30px] border border-white/60 p-10 text-center shadow-[0_18px_60px_rgba(20,26,39,0.08)]">
+          <div className="bg-gradient-panel backdrop-blur-xl rounded-[30px] border border-white/60 p-10 text-center shadow-premium">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white">
               <FileText className="h-6 w-6" />
             </div>
@@ -197,7 +198,7 @@ export function AppraisalWorkspace({
         ) : (
           <>
             {/* Detailed Appraisal Header */}
-            <div className="panel-surface rounded-[30px] border border-white/60 p-6 shadow-[0_18px_60px_rgba(20,26,39,0.08)]">
+            <div className="bg-gradient-panel backdrop-blur-xl rounded-[30px] border border-white/60 p-6 shadow-premium">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -237,7 +238,7 @@ export function AppraisalWorkspace({
             </div>
 
             {/* Form Steps */}
-            <div className="panel-surface rounded-[30px] border border-white/60 p-6 shadow-[0_18px_60px_rgba(20,26,39,0.08)] transition-all">
+            <div className="bg-gradient-panel backdrop-blur-xl rounded-[30px] border border-white/60 p-6 shadow-premium transition-all">
               <div className="flex flex-wrap gap-2">
                 {steps.map((step, index) => (
                   <button
@@ -275,7 +276,7 @@ export function AppraisalWorkspace({
                               }))}
                               disabled={!appraisalDetail.permissions.canEditEmployeeSection}
                               rows={4}
-                              className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
+                              className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
                             />
                           </div>
                         ))}
@@ -306,9 +307,10 @@ export function AppraisalWorkspace({
                                    <textarea
                                       value={item.objective}
                                       onChange={e => onEditorChange(p => ({ ...p, kras: p.kras.map((k, i) => i === index ? { ...k, objective: e.target.value } : k) }))}
-                                      disabled={!appraisalDetail.permissions.canEditEmployeeSection}
-                                      className="w-full rounded-xl border border-slate-100 p-2 text-sm"
+                                      disabled={!appraisalDetail.permissions.canEditKRASection}
+                                      className="w-full rounded-xl border border-slate-100 p-2 text-sm disabled:bg-slate-50"
                                       rows={2}
+                                      placeholder="Defined objective..."
                                    />
                                  </td>
                                  <td className="p-2">
@@ -316,8 +318,8 @@ export function AppraisalWorkspace({
                                       type="number"
                                       value={item.weightage}
                                       onChange={e => onEditorChange(p => ({ ...p, kras: p.kras.map((k, i) => i === index ? { ...k, weightage: Number(e.target.value) } : k) }))}
-                                      disabled={!appraisalDetail.permissions.canEditEmployeeSection}
-                                      className="w-16 rounded-xl border border-slate-100 p-2 text-sm"
+                                      disabled={!appraisalDetail.permissions.canEditKRASection}
+                                      className="w-16 rounded-xl border border-slate-100 p-2 text-sm disabled:bg-slate-50"
                                    />
                                  </td>
                                  <td className="p-2">
@@ -326,7 +328,7 @@ export function AppraisalWorkspace({
                                       value={item.appraiseeRating ?? ""}
                                       onChange={e => onEditorChange(p => ({ ...p, kras: p.kras.map((k, i) => i === index ? { ...k, appraiseeRating: parseNullableNumber(e.target.value) } : k) }))}
                                       disabled={!appraisalDetail.permissions.canEditEmployeeSection}
-                                      className="w-16 rounded-xl border border-slate-100 p-2 text-sm"
+                                      className="w-16 rounded-xl border border-slate-100 p-2 text-sm disabled:bg-slate-50"
                                    />
                                  </td>
                                  <td className="p-2">
@@ -335,7 +337,7 @@ export function AppraisalWorkspace({
                                       value={item.appraiserRating ?? ""}
                                       onChange={e => onEditorChange(p => ({ ...p, kras: p.kras.map((k, i) => i === index ? { ...k, appraiserRating: parseNullableNumber(e.target.value) } : k) }))}
                                       disabled={!appraisalDetail.permissions.canEditManagerSection}
-                                      className="w-16 rounded-xl border border-slate-100 p-2 text-sm"
+                                      className="w-16 rounded-xl border border-slate-100 p-2 text-sm disabled:bg-slate-50"
                                    />
                                  </td>
                                  <td className="p-2">
@@ -344,13 +346,36 @@ export function AppraisalWorkspace({
                                       value={item.comments ?? ""}
                                       onChange={e => onEditorChange(p => ({ ...p, kras: p.kras.map((k, i) => i === index ? { ...k, comments: e.target.value } : k) }))}
                                       disabled={!appraisalDetail.permissions.canEditManagerSection}
-                                      className="w-full rounded-xl border border-slate-100 p-2 text-sm"
+                                      className="w-full rounded-xl border border-slate-100 p-2 text-sm disabled:bg-slate-50"
                                    />
                                  </td>
+                                 {appraisalDetail.permissions.canEditKRASection && (
+                                   <td className="p-2">
+                                     <button
+                                       type="button"
+                                       onClick={() => onEditorChange(p => ({ ...p, kras: p.kras.filter((_, i) => i !== index) }))}
+                                       className="text-rose-500 hover:text-rose-700 font-bold"
+                                     >
+                                       &times;
+                                     </button>
+                                   </td>
+                                 )}
                                </tr>
                              ))}
                            </tbody>
                         </table>
+                        {appraisalDetail.permissions.canEditKRASection && (
+                          <button
+                            type="button"
+                            onClick={() => onEditorChange(p => ({
+                              ...p,
+                              kras: [...p.kras, { objective: "", weightage: 0, appraiseeRating: null, appraiserRating: null, comments: "", displayOrder: p.kras.length }]
+                            }))}
+                            className="mt-4 rounded-xl border border-dashed border-slate-300 px-4 py-2 text-sm text-slate-500 hover:border-slate-900 hover:text-slate-900"
+                          >
+                            + Add KPI / KRA Row
+                          </button>
+                        )}
                       </div>
                    </SectionCard>
                 )}
@@ -416,7 +441,7 @@ export function AppraisalWorkspace({
                                managerReview: { ...p.managerReview, overallRating: parseNullableNumber(e.target.value) }
                              }))}
                              disabled={!appraisalDetail.permissions.canEditManagerSection}
-                             className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
+                             className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
                            />
                         </div>
                         <div className="space-y-2">
@@ -430,7 +455,7 @@ export function AppraisalWorkspace({
                              disabled={!appraisalDetail.permissions.canEditManagerSection}
                              rows={6}
                              placeholder="Provide constructive feedback on key achievements and areas for improvement..."
-                             className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
+                             className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
                            />
                         </div>
                       </div>
@@ -454,7 +479,7 @@ export function AppraisalWorkspace({
                                   ceoReview: { ...p.ceoReview, finalRating: parseNullableNumber(e.target.value) }
                                 }))}
                                 disabled={!appraisalDetail.permissions.canEditCEOSection}
-                                className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
+                                className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
                               />
                            </div>
                            <div className="space-y-2">
@@ -470,7 +495,7 @@ export function AppraisalWorkspace({
                                   ceoReview: { ...p.ceoReview, hikePercentage: parseNullableNumber(e.target.value) }
                                 }))}
                                 disabled={!appraisalDetail.permissions.canEditCEOSection}
-                                className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
+                                className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
                               />
                            </div>
                         </div>
@@ -484,43 +509,51 @@ export function AppraisalWorkspace({
                              }))}
                              disabled={!appraisalDetail.permissions.canEditCEOSection}
                              rows={4}
-                             className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
+                             className="w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50/50"
                            />
                         </div>
                       </div>
                    </SectionCard>
                 )}
               </div>
-
-               <div className="mt-8 flex items-center gap-4 border-t border-slate-100 pt-6">
-                  <button
-                    onClick={() => onAction("save")}
-                    disabled={!appraisalDetail.permissions.canSave || isSaving}
-                    className="group inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-slate-800 disabled:bg-slate-300"
-                  >
-                    <Save className={clsx("h-4 w-4", isSaving && "animate-spin")} />
-                    {isSaving ? "Saving..." : "Save Progress"}
-                  </button>
+                <div className="mt-10 flex items-center justify-between border-t border-slate-100 pt-8">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => onAction("save")}
+                      disabled={!appraisalDetail.permissions.canSave || isSaving}
+                      className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] disabled:opacity-50"
+                    >
+                      <Save className={clsx("h-4 w-4", isSaving && "animate-spin")} />
+                      {isSaving ? "Saving..." : "Save Draft"}
+                    </button>
+                  </div>
+                  
                   <button
                     onClick={() => onAction("submit")}
                     disabled={!appraisalDetail.permissions.canSubmit || isSaving}
-                    className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#185a63,#d06741)] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-8 py-3.5 text-sm font-bold text-white shadow-[0_10px_30px_rgba(15,23,42,0.15)] transition-all hover:scale-[1.03] hover:bg-slate-800 active:scale-[0.97] disabled:opacity-50"
                   >
                     <ArrowRight className="h-4 w-4" />
-                    {appraisalDetail.permissions.nextActionLabel ?? "Submit"}
+                    {appraisalDetail.permissions.nextActionLabel ?? "Submit Appraisal"}
                   </button>
-               </div>
+                </div>
             </div>
 
             {/* AI Insights Section */}
-            <div className="panel-surface rounded-[30px] border border-white/60 p-6 shadow-[0_18px_60px_rgba(20,26,39,0.08)]">
-               <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-white">
+            <div className="bg-gradient-panel backdrop-blur-xl rounded-[30px] border border-white/60 p-6 shadow-premium">
+                 <div className="flex items-center gap-3 mb-6">
+                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-ai text-white shadow-lg shadow-indigo-500/20">
                     <Sparkles className="h-5 w-5" />
                   </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">AI Intelligence</p>
-                    <h3 className="text-xl font-semibold text-slate-900">Performance DNA</h3>
+                  <div className="flex-1">
+                    <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-400">Google Gemini Power-up</p>
+                    <div className="flex items-center gap-2">
+                       <h3 className="text-xl font-semibold text-slate-900">Performance DNA</h3>
+                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+                         <ShieldCheck className="h-3 w-3" />
+                         UNBIASED CALIBRATION
+                       </span>
+                    </div>
                   </div>
                </div>
                

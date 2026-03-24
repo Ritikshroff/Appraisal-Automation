@@ -6,15 +6,15 @@ import { AuthForm } from "@/components/auth-form";
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
+  let session = null;
   try {
-    const session = await auth();
-
-    if (session?.user?.id) {
-      redirect("/");
-    }
+    session = await auth();
   } catch (error) {
     console.error("Login Page session fetch error:", error);
-    // Continue rendering the login page even if session fetch fails
+  }
+
+  if (session?.user?.id) {
+    redirect("/");
   }
 
   return (
@@ -30,7 +30,7 @@ export default async function LoginPage() {
         </p>
         <div className="mt-10 grid max-w-xl gap-4 sm:grid-cols-3">
           {["Employees", "Managers", "CEO"].map((item) => (
-            <div key={item} className="panel-surface rounded-[24px] border border-white/70 px-4 py-5 shadow-sm">
+            <div key={item} className="bg-gradient-panel backdrop-blur-xl rounded-[24px] border border-white/70 px-4 py-5 shadow-sm">
               <div className="text-xs uppercase tracking-[0.22em] text-slate-500">{item}</div>
               <div className="mt-2 text-lg font-semibold text-slate-900">Role-locked access</div>
             </div>

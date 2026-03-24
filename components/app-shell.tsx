@@ -80,14 +80,14 @@ export function AppShell({ user, activeView, children }: AppShellProps) {
 
   return (
     <div className="flex min-h-screen w-full lg:flex-row">
-      <aside className="hidden lg:block w-[280px] shrink-0 h-screen sticky top-0 border-r border-white/50 bg-[linear-gradient(180deg,rgba(14,25,36,0.96),rgba(19,53,65,0.93))] px-6 py-8 text-white z-50">
+      <aside className="hidden lg:block w-[280px] shrink-0 h-screen sticky top-0 border-r border-slate-200 bg-white/40 backdrop-blur-xl px-6 py-8 text-slate-900 z-50">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
-            <BarChart3 className="h-5 w-5" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900/5 ring-1 ring-slate-900/10">
+            <BarChart3 className="h-5 w-5 text-slate-900" />
           </div>
           <div>
-            <div className="text-xs uppercase tracking-[0.24em] text-white/55">Internal</div>
-            <div className="text-xl font-semibold tracking-tight">Cybermedia</div>
+            <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Internal</div>
+            <div className="text-xl font-semibold tracking-tight text-slate-900">Cybermedia</div>
           </div>
         </div>
 
@@ -100,10 +100,10 @@ export function AppShell({ user, activeView, children }: AppShellProps) {
                 key={item.id}
                 href={item.href}
                 className={clsx(
-                  "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium",
+                  "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
                   activeView === item.id
-                    ? "bg-white text-slate-950"
-                    : "text-white/74 hover:bg-white/10 hover:text-white",
+                    ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                    : "text-slate-600 hover:bg-slate-900/5 hover:text-slate-900",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -113,10 +113,10 @@ export function AppShell({ user, activeView, children }: AppShellProps) {
           })}
         </nav>
 
-        <div className="mt-10 rounded-[24px] border border-white/10 bg-white/6 px-4 py-5">
-          <div className="text-xs uppercase tracking-[0.22em] text-white/45">Signed In</div>
-          <div className="mt-3 text-lg font-semibold">{user.name}</div>
-          <div className="mt-1 text-sm text-white/65">{user.email}</div>
+        <div className="mt-10 rounded-[24px] border border-slate-200 bg-white/40 px-4 py-5 backdrop-blur-sm">
+          <div className="text-xs uppercase tracking-[0.22em] text-slate-400 font-medium">Signed In</div>
+          <div className="mt-3 text-lg font-semibold text-slate-900">{user.name}</div>
+          <div className="mt-1 text-sm text-slate-500">{user.email}</div>
           <div className={clsx("mt-4 inline-flex rounded-full px-3 py-1 text-xs font-medium", roleTone(user.role))}>
             {user.role}
           </div>

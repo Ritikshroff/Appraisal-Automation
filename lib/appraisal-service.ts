@@ -10,7 +10,7 @@ import {
   normalizeSectionAnswers,
   roundTo,
 } from "@/lib/appraisal";
-import { generatePerformanceAnalysis } from "@/lib/openai";
+import { generatePerformanceAnalysis } from "@/lib/gemini";
 import type {
   ActorSummary,
   AppraisalDetail,
@@ -289,7 +289,7 @@ function isAllowedToView(user: AuthUserRecord, appraisal: AppraisalRecord) {
   }
 
   if (user.role === Role.MANAGER) {
-    return Boolean(user.teamId) && appraisal.teamId === user.teamId && appraisal.status !== AppraisalStatus.DRAFT;
+    return Boolean(user.teamId) && appraisal.teamId === user.teamId;
   }
 
   return Boolean(user.employeeId) && appraisal.employeeId === user.employeeId;
@@ -301,7 +301,10 @@ function canSave(user: AuthUserRecord, appraisal: AppraisalRecord) {
   }
 
   if (user.role === Role.MANAGER) {
-    return appraisal.managerId === user.employeeId && appraisal.status === AppraisalStatus.SUBMITTED;
+    return (
+      appraisal.managerId === user.employeeId &&
+      (appraisal.status === AppraisalStatus.SUBMITTED || appraisal.status === AppraisalStatus.DRAFT)
+    );
   }
 
   if (user.role === Role.CEO) {
@@ -312,6 +315,9 @@ function canSave(user: AuthUserRecord, appraisal: AppraisalRecord) {
 }
 
 function canSubmit(user: AuthUserRecord, appraisal: AppraisalRecord) {
+  if (user.role === Role.MANAGER) {
+    return appraisal.managerId === user.employeeId && appraisal.status === AppraisalStatus.SUBMITTED;
+  }
   return canSave(user, appraisal);
 }
 
@@ -322,9 +328,10 @@ function buildPermissions(user: AuthUserRecord, appraisal: AppraisalRecord): App
   return {
     canSave: saveAllowed,
     canSubmit: submitAllowed,
-    canEditEmployeeSection: saveAllowed && user.role === Role.EMPLOYEE,
-    canEditManagerSection: saveAllowed && user.role === Role.MANAGER,
-    canEditCEOSection: saveAllowed && user.role === Role.CEO,
+    canEditEmployeeSection: saveAllowed && user.role === Role.EMPLOYEE && appraisal.status === AppraisalStatus.DRAFT,
+    canEditManagerSection: saveAllowed && user.role === Role.MANAGER && appraisal.status === AppraisalStatus.SUBMITTED,
+    canEditCEOSection: saveAllowed && user.role === Role.CEO && appraisal.status === AppraisalStatus.MANAGER_REVIEW,
+    canEditKRASection: saveAllowed && (user.role === Role.EMPLOYEE || user.role === Role.MANAGER),
     currentStageLabel: getCurrentStageLabel(appraisal.status),
     nextActionLabel: submitAllowed ? getSubmitLabelForRole(user.role) : null,
   };
@@ -640,7 +647,7 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
     user.role === Role.CEO
       ? {}
       : user.role === Role.MANAGER
-        ? { teamId: user.teamId ?? "__missing_team__", status: { not: AppraisalStatus.DRAFT } }
+        ? { teamId: user.teamId ?? "__missing_team__" }
         : { employeeId: user.employeeId ?? "__missing_employee__" };
 
   const visibleWhere = combineWhere(scope, searchWhere);
@@ -650,7 +657,7 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
     user.role === Role.EMPLOYEE
       ? { status: { not: AppraisalStatus.COMPLETED } }
       : user.role === Role.MANAGER
-        ? { status: AppraisalStatus.SUBMITTED }
+        ? { status: { in: [AppraisalStatus.SUBMITTED, AppraisalStatus.DRAFT] } }
         : { status: AppraisalStatus.MANAGER_REVIEW },
   );
   const teamStatusWhere =

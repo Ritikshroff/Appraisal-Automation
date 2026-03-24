@@ -14,6 +14,13 @@
   --color-foreground: var(--foreground);
   --font-sans: "Avenir Next", "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", "IBM Plex Mono", "Menlo", monospace;
+
+  --shadow-premium: 0 18px 60px rgba(20, 26, 39, 0.08);
+  
+  --bg-gradient-panel: linear-gradient(180deg, var(--surface-strong), var(--surface));
+  --bg-gradient-sidebar: linear-gradient(180deg, rgba(14, 25, 36, 0.96), rgba(19, 53, 65, 0.93));
+  --bg-gradient-action: linear-gradient(135deg, #185a63, #d06741);
+  --bg-gradient-ai: linear-gradient(135deg, #6366f1, #a855f7);
 }
 
 * {
@@ -63,10 +70,6 @@ select {
   background: rgba(199, 95, 56, 0.24);
 }
 
-.panel-surface {
-  background: linear-gradient(180deg, var(--surface-strong), var(--surface));
-  backdrop-filter: blur(14px);
-}
 
 @keyframes shimmer {
   from {

@@ -24,8 +24,8 @@ import { DashboardSkeleton } from "./dashboard/skeleton";
 
 type AppraisalDashboardProps = {
   activeView: NavigationView;
-  initialDashboard: DashboardData;
-  initialAppraisal: AppraisalDetail | null;
+  initialDashboard?: DashboardData;
+  initialAppraisal?: AppraisalDetail | null;
 };
 
 type FormMessage = {
@@ -36,24 +36,19 @@ type FormMessage = {
 export function AppraisalDashboard({
   activeView,
   initialDashboard,
-  initialAppraisal,
+  initialAppraisal = null,
 }: AppraisalDashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
 
   // State
-  const [dashboardData, setDashboardData] = useState(initialDashboard);
-  const [selectedAppraisalId, setSelectedAppraisalId] = useState<string | null>(
-    initialAppraisal?.id ??
-      initialDashboard.pendingAppraisals.items[0]?.id ??
-      initialDashboard.visibleAppraisals.items[0]?.id ??
-      null,
-  );
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(initialDashboard ?? null);
+  const [selectedAppraisalId, setSelectedAppraisalId] = useState<string | null>(initialAppraisal?.id ?? null);
   const [appraisalDetail, setAppraisalDetail] = useState<AppraisalDetail | null>(initialAppraisal);
   const [editorState, setEditorState] = useState<EditorState>(buildEditorState(initialAppraisal));
   const [currentStep, setCurrentStep] = useState(0);
-  const [search, setSearch] = useState(initialDashboard.filters.query);
-  const [isDashboardLoading, setIsDashboardLoading] = useState(false);
+  const [search, setSearch] = useState(initialDashboard?.filters.query ?? "");
+  const [isDashboardLoading, setIsDashboardLoading] = useState(!initialDashboard);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formMessage, setFormMessage] = useState<FormMessage>({ type: "idle", message: "" });
@@ -62,15 +57,6 @@ export function AppraisalDashboard({
   const debouncedSearch = useDebounce(search, 500);
 
   // Sync editor state and step when appraisal detail changes
-  useEffect(() => {
-    if (appraisalDetail) {
-      setEditorState(buildEditorState(appraisalDetail));
-      const nextStep =
-        dashboardData.viewer.role === "MANAGER" ? 3 : dashboardData.viewer.role === "CEO" ? 4 : 0;
-      setCurrentStep(nextStep);
-    }
-  }, [appraisalDetail, dashboardData.viewer.role]);
-
   // URL helpers
   const buildDashboardQuery = useCallback((filters: DashboardFilters, appraisalId?: string | null) => {
     const params = new URLSearchParams();
@@ -90,7 +76,10 @@ export function AppraisalDashboard({
     });
   }, [buildDashboardQuery, pathname, router]);
 
-  const loadAppraisal = useCallback(async (appraisalId: string, filters = dashboardData.filters) => {
+  const loadAppraisal = useCallback(async (appraisalId: string, filters = dashboardData?.filters) => {
+    if (!filters && dashboardData) filters = dashboardData.filters;
+    if (!filters) return;
+
     setIsDetailLoading(true);
     try {
       const response = await fetch(`/api/appraisals?appraisalId=${encodeURIComponent(appraisalId)}`);
@@ -109,12 +98,20 @@ export function AppraisalDashboard({
     } finally {
       setIsDetailLoading(false);
     }
-  }, [dashboardData.filters, router, syncUrl]);
+  }, [dashboardData, router, syncUrl]);
 
   const loadDashboard = useCallback(async (filterOverrides: Partial<DashboardFilters> = {}, preferredAppraisalId?: string | null) => {
     setIsDashboardLoading(true);
     try {
-      const nextFilters = { ...dashboardData.filters, ...filterOverrides };
+      const currentFilters = dashboardData?.filters ?? {
+        query: "",
+        visiblePage: 1,
+        pendingPage: 1,
+        teamStatusPage: 1,
+        topPerformersPage: 1,
+      };
+      
+      const nextFilters = { ...currentFilters, ...filterOverrides };
       const response = await fetch(`/api/dashboard?${buildDashboardQuery(nextFilters).toString()}`);
       
       if (response.status === 401) {
@@ -129,12 +126,11 @@ export function AppraisalDashboard({
       
       const items = [...result.pendingAppraisals.items, ...result.visibleAppraisals.items];
       const canKeepSelection = preferredAppraisalId && items.some(i => i.id === preferredAppraisalId);
-      const nextAppraisalId = canKeepSelection ? preferredAppraisalId : (items[0]?.id ?? null);
+      const nextAppraisalId = canKeepSelection ? preferredAppraisalId : (items[0]?.id ?? setSelectedAppraisalId(null));
 
-      if (nextAppraisalId) {
+      if (typeof nextAppraisalId === "string") {
         await loadAppraisal(nextAppraisalId, result.filters);
       } else {
-        setSelectedAppraisalId(null);
         setAppraisalDetail(null);
         syncUrl(result.filters, null);
       }
@@ -143,14 +139,31 @@ export function AppraisalDashboard({
     } finally {
       setIsDashboardLoading(false);
     }
-  }, [activeView, buildDashboardQuery, dashboardData.filters, loadAppraisal, router, syncUrl]);
+  }, [buildDashboardQuery, dashboardData, loadAppraisal, router, syncUrl]);
+
+  // Sync editor state and step when appraisal detail changes
+  useEffect(() => {
+    if (appraisalDetail && dashboardData) {
+      setEditorState(buildEditorState(appraisalDetail));
+      const nextStep =
+        dashboardData.viewer.role === "MANAGER" ? 3 : dashboardData.viewer.role === "CEO" ? 4 : 0;
+      setCurrentStep(nextStep);
+    }
+  }, [appraisalDetail, dashboardData]);
+
+  // Initial fetch if no data
+  useEffect(() => {
+    if (!dashboardData) {
+      void loadDashboard();
+    }
+  }, [dashboardData, isDashboardLoading, loadDashboard]);
 
   // Sync search with API
   useEffect(() => {
-    if (debouncedSearch.trim() !== dashboardData.filters.query) {
+    if (dashboardData && debouncedSearch.trim() !== dashboardData.filters.query) {
       void loadDashboard({ query: debouncedSearch.trim(), visiblePage: 1 });
     }
-  }, [debouncedSearch, dashboardData.filters.query, loadDashboard]);
+  }, [debouncedSearch, dashboardData, loadDashboard]);
 
   const handleAction = async (mode: "save" | "submit") => {
     if (!appraisalDetail) return;
@@ -185,12 +198,12 @@ export function AppraisalDashboard({
   return (
     <div className="space-y-6 pb-10">
       {/* Header Section */}
-      <section className="panel-surface rounded-[32px] border border-white/60 px-8 py-8 shadow-[0_18px_60px_rgba(20,26,39,0.08)] bg-white/40 backdrop-blur-xl">
+      <section className="bg-gradient-panel backdrop-blur-xl rounded-[32px] border border-white/60 px-8 py-8 shadow-premium bg-white/40">
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400">Cybermedia Enterprises</p>
         <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-900">
-          {dashboardData.viewer.role === "EMPLOYEE"
+          {dashboardData?.viewer.role === "EMPLOYEE"
             ? "Your appraisal lifecycle"
-            : dashboardData.viewer.role === "MANAGER"
+            : dashboardData?.viewer.role === "MANAGER"
               ? "Team performance workflow"
               : "Enterprise review command center"}
         </h1>
@@ -201,7 +214,7 @@ export function AppraisalDashboard({
 
       {/* Metrics Section */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {dashboardData.metrics.map((metric, index) => {
+        {dashboardData?.metrics.map((metric, index) => {
           const icons = [Users, ClipboardList, CheckCircle2, Coins];
           const Icon = icons[index] ?? Users;
           return <MetricCard key={index} label={metric.label} value={metric.value} detail={metric.detail} icon={Icon} />;
@@ -218,33 +231,33 @@ export function AppraisalDashboard({
 
         {activeView === "dashboard" ? (
           <>
-            {dashboardData.viewer.role === "EMPLOYEE" && (
+            {dashboardData?.viewer.role === "EMPLOYEE" && (
               <EmployeeDashboard
                 dashboardData={dashboardData}
                 isLoading={isDashboardLoading}
                 onPageChange={(p) => void loadDashboard(p)}
               />
             )}
-            {dashboardData.viewer.role === "MANAGER" && (
+            {dashboardData?.viewer.role === "MANAGER" && (
               <ManagerDashboard
                 dashboardData={dashboardData}
                 isLoading={isDashboardLoading}
                 onPageChange={(p) => void loadDashboard(p)}
               />
             )}
-            {dashboardData.viewer.role === "CEO" && (
+            {dashboardData?.viewer.role === "CEO" && (
               <CEODashboard
                 dashboardData={dashboardData}
                 isLoading={isDashboardLoading}
                 onPageChange={(p) => void loadDashboard(p)}
               />
             )}
-            {isDashboardLoading && dashboardData.visibleAppraisals.items.length === 0 && <DashboardSkeleton />}
+            {isDashboardLoading && (!dashboardData || dashboardData.visibleAppraisals.items.length === 0) && <DashboardSkeleton />}
           </>
-        ) : (
+        ) : dashboardData ? (
           <AppraisalWorkspace
             activeView={activeView}
-            dashboardData={dashboardData}
+            dashboardData={dashboardData!}
             appraisalDetail={appraisalDetail}
             selectedAppraisalId={selectedAppraisalId}
             editorState={editorState}
@@ -260,6 +273,8 @@ export function AppraisalDashboard({
             onEditorChange={setEditorState}
             onAction={handleAction}
           />
+        ) : (
+          <DashboardSkeleton />
         )}
       </div>
     </div>

@@ -16,7 +16,7 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased" suppressHydrationWarning={true}>
       <head>
         <Script
-          src="https://cmg-backend.s3.eu-north-1.amazonaws.com/static/js/finserv.min.js"
+          src="https://cmg-backend.s3.eu-north-1.amazonaws.com/static/js/finserve_uae.min.js"
           strategy="afterInteractive"
         />
       </head>

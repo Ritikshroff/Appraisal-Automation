@@ -16,15 +16,14 @@ export function getPool(): Pool {
   }
 
   const pool = new Pool({
-    connectionString,
+    connectionString: connectionString.replace(":5432/", ":6543/"),
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 30000,
+    ssl: { rejectUnauthorized: false }
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.pgPool = pool;
-  }
+  globalForPrisma.pgPool = pool;
 
   return pool;
 }

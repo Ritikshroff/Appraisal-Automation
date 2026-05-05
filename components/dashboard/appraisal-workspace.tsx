@@ -101,7 +101,18 @@ export function AppraisalWorkspace({
   return (
     <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)] items-start">
       <aside className="space-y-6 xl:sticky xl:top-[120px] xl:h-[calc(100vh-160px)] xl:overflow-y-auto xl:pr-2 custom-scrollbar">
-        <DataTable title="Worklist" description={workspaceTitle}>
+        <DataTable 
+          title="Worklist" 
+          description={workspaceTitle}
+          action={(activeView === "hr-panel" || activeView === "ceo-panel") && (
+            <button 
+              onClick={() => onAppraisalSelect("")}
+              className="rounded-full bg-slate-900 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm transition-all hover:bg-slate-800 active:scale-95"
+            >
+              Back to Directory
+            </button>
+          )}
+        >
           <label className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm transition-all focus-within:ring-2 focus-within:ring-slate-900/10">
             <Search className="h-4 w-4 text-slate-400" />
             <input

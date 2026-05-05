@@ -86,9 +86,16 @@ export function AppraisalDashboard({
     });
   }, [buildDashboardQuery, pathname, router]);
 
-  const loadAppraisal = useCallback(async (appraisalId: string, filters = dashboardData?.filters) => {
+  const loadAppraisal = useCallback(async (appraisalId: string | null, filters = dashboardData?.filters) => {
     if (!filters && dashboardData) filters = dashboardData.filters;
     if (!filters) return;
+
+    if (!appraisalId) {
+      setSelectedAppraisalId(null);
+      setAppraisalDetail(null);
+      syncUrl(filters, null);
+      return;
+    }
 
     setIsDetailLoading(true);
     try {
@@ -136,11 +143,22 @@ export function AppraisalDashboard({
       
       const items = [...result.pendingAppraisals.items, ...result.visibleAppraisals.items];
       const canKeepSelection = preferredAppraisalId && items.some(i => i.id === preferredAppraisalId);
-      const nextAppraisalId = canKeepSelection ? preferredAppraisalId : (items[0]?.id ?? setSelectedAppraisalId(null));
+      
+      // If preferredAppraisalId is explicitly null, we are clearing selection.
+      // Otherwise, we try to keep selection or pick the first item as a fallback for non-HR/CEO views.
+      let nextAppraisalId: string | null = null;
+      if (preferredAppraisalId !== null) {
+        if (canKeepSelection) {
+          nextAppraisalId = preferredAppraisalId!;
+        } else if (items.length > 0 && activeView !== "hr-panel" && activeView !== "ceo-panel") {
+          nextAppraisalId = items[0].id;
+        }
+      }
 
-      if (typeof nextAppraisalId === "string") {
+      if (nextAppraisalId) {
         await loadAppraisal(nextAppraisalId, result.filters);
       } else {
+        setSelectedAppraisalId(null);
         setAppraisalDetail(null);
         syncUrl(result.filters, null);
       }
@@ -155,11 +173,15 @@ export function AppraisalDashboard({
   useEffect(() => {
     if (appraisalDetail && dashboardData) {
       setEditorState(buildEditorState(appraisalDetail));
+      const isPersonalView = activeView === "my-appraisal";
       const nextStep =
-        dashboardData.viewer.role === "MANAGER" ? 3 : dashboardData.viewer.role === "CEO" ? 4 : dashboardData.viewer.role === "HR" ? 0 : 0;
+        isPersonalView ? 0 : 
+        dashboardData.viewer.role === "MANAGER" ? 3 : 
+        dashboardData.viewer.role === "CEO" ? 4 : 
+        dashboardData.viewer.role === "HR" ? 0 : 0;
       setCurrentStep(nextStep);
     }
-  }, [appraisalDetail, dashboardData]);
+  }, [appraisalDetail, dashboardData, activeView]);
 
   const urlAppraisalId = searchParams.get("appraisalId");
 
@@ -253,7 +275,7 @@ export function AppraisalDashboard({
         <section className="bg-gradient-panel backdrop-blur-xl rounded-[32px] border border-white/60 px-8 py-8 shadow-premium bg-white/40">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400">Cybermedia Enterprises</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-900">
-            {dashboardData?.viewer.role === "EMPLOYEE"
+            {dashboardData?.viewer.role === "EMPLOYEE" || activeView === "my-appraisal"
               ? "Your appraisal lifecycle"
               : dashboardData?.viewer.role === "MANAGER"
                 ? "Team performance workflow"
@@ -286,7 +308,7 @@ export function AppraisalDashboard({
           </div>
         )}
 
-        {activeView === "dashboard" || activeView === "hr-panel" ? (
+        {(activeView === "dashboard" || activeView === "hr-panel" || activeView === "ceo-panel") && !selectedAppraisalId ? (
           <>
             {dashboardData?.viewer.role === "EMPLOYEE" && activeView === "dashboard" && (
               <EmployeeDashboard
@@ -319,10 +341,14 @@ export function AppraisalDashboard({
                 search={search}
               />
             )}
-            {isDashboardLoading && (!dashboardData || (activeView === "dashboard" && dashboardData.visibleAppraisals.items.length === 0)) && <DashboardSkeleton />}
-            {!isDashboardLoading && !dashboardData && <DashboardSkeleton />}
+            {isDashboardLoading && !dashboardData && <DashboardSkeleton />}
+            {!isDashboardLoading && !dashboardData && (
+              <div className="flex h-[400px] items-center justify-center rounded-[32px] border border-dashed border-slate-200 bg-white/40">
+                <p className="text-sm text-slate-500">Failed to load dashboard data. Please refresh.</p>
+              </div>
+            )}
           </>
-        ) : dashboardData ? (
+        ) : (dashboardData || appraisalDetail) ? (
           <AppraisalWorkspace
             activeView={activeView}
             dashboardData={dashboardData!}

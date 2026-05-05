@@ -142,7 +142,7 @@ export function AppShell({ user, activeView, children }: AppShellProps) {
                   "ceo-panel": "CEO Panel",
                 };
                 const title = titles[activeView] || "Appraisal System";
-                return `${title} (v2)`; 
+                return `${title} `;
               })()}
             </h1>
           </div>

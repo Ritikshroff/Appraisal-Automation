@@ -56,6 +56,7 @@ export type ActorSummary = {
   role: RoleValue;
   teamId: string | null;
   teamName: string | null;
+  managerId: string | null;
   managerName: string | null;
   finalReviewerName: string | null;
   doj: string | null;
@@ -170,6 +171,7 @@ export type UserManagementData = {
   employees: PaginatedCollection<ActorSummary>;
   activeCycles: CycleSummary[];
   allTeams: TeamSummary[];
+  allEmployees: { id: string; fullName: string }[];
   systemSettings: SystemSettingsSummary;
 };
 

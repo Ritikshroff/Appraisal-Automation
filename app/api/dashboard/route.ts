@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const data = await getDashboardData(session.user.id, {
       query: url.searchParams.get("q") ?? "",
+      view: url.searchParams.get("view") ?? undefined,
       visiblePage: parsePage(url.searchParams.get("appraisalsPage")),
       pendingPage: parsePage(url.searchParams.get("pendingPage")),
       teamStatusPage: parsePage(url.searchParams.get("teamStatusPage")),

@@ -9,11 +9,16 @@ import {
   Building2,
   Calendar,
   Users,
-  CheckCircle2
+  CheckCircle2,
+  X,
+  Save,
+  ChevronDown
 } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
+import { useState, useEffect } from "react";
 import { PaginationControls } from "./pagination-controls";
+import { CustomSelect, CustomDatePicker } from "@/components/ui/custom-inputs";
 
 import type { DashboardData, ActorSummary, DashboardFilters } from "@/lib/types";
 
@@ -27,6 +32,40 @@ type HRDashboardProps = {
 };
 
 export function HRDashboard({ dashboardData, isLoading, onPageChange, onSort, onSearchChange, search }: HRDashboardProps) {
+  const [editingEmployee, setEditingEmployee] = useState<ActorSummary | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [activeActionsMenu, setActiveActionsMenu] = useState<string | null>(null);
+
+  // Edit form state for custom selects
+  const [editFormData, setEditFormData] = useState({
+    role: "",
+    managerId: "",
+    teamId: "",
+    cycleId: ""
+  });
+
+  useEffect(() => {
+    if (editingEmployee) {
+      setEditFormData({
+        role: editingEmployee.role,
+        managerId: editingEmployee.managerId || "none",
+        teamId: editingEmployee.teamId || "none",
+        cycleId: ""
+      });
+    }
+  }, [editingEmployee]);
+
+  // Local state for global window to support custom date pickers
+  const [globalStart, setGlobalStart] = useState(dashboardData.hrData?.systemSettings.globalDeadlineStart || "");
+  const [globalEnd, setGlobalEnd] = useState(dashboardData.hrData?.systemSettings.globalDeadlineEnd || "");
+
+  useEffect(() => {
+    if (dashboardData.hrData) {
+      setGlobalStart(dashboardData.hrData.systemSettings.globalDeadlineStart);
+      setGlobalEnd(dashboardData.hrData.systemSettings.globalDeadlineEnd);
+    }
+  }, [dashboardData.hrData]);
+
   if (!dashboardData) return null;
   
   const hrData = dashboardData.hrData;
@@ -34,19 +73,38 @@ export function HRDashboard({ dashboardData, isLoading, onPageChange, onSort, on
 
   const handleAssignCycle = async (employeeId: string, cycleId: string) => {
     try {
-      const res = await fetch("/api/admin/assign-cycle", {
+      const response = await fetch("/api/admin/assign-cycle", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeId, cycleId }),
       });
-      if (res.ok) {
-        toast.success("Employee cycle updated successfully.");
-        onPageChange({}); // Refresh data
-      } else {
-        const err = await res.text();
-        toast.error(`Failed to assign cycle: ${err}`);
+      if (!response.ok) throw new Error("Failed to assign cycle");
+      toast.success("Appraisal cycle updated successfully");
+      onPageChange({}); // Refresh
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleUpdateEmployee = async (data: any) => {
+    try {
+      const response = await fetch("/api/admin/employee", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Failed to update employee");
+      
+      // Also handle cycle if changed
+      if (data.cycleId) {
+        await handleAssignCycle(data.id, data.cycleId);
       }
-    } catch (e) {
-      toast.error("An unexpected error occurred.");
+
+      toast.success("Employee updated successfully");
+      setIsEditModalOpen(false);
+      onPageChange({}); // Refresh
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
@@ -100,54 +158,49 @@ export function HRDashboard({ dashboardData, isLoading, onPageChange, onSort, on
                 <ShieldCheck className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Global Appraisal Window</h3>
+                <h3 className="text-lg font-bold text-slate-900">Global System Window</h3>
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-bold opacity-60">System-Wide Deadline Enforcement</p>
               </div>
             </div>
             
             <div className="flex flex-wrap items-center gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Platform Opens</label>
-                <input 
-                  type="date" 
-                  defaultValue={new Date(hrData.systemSettings.globalDeadlineStart).toISOString().split('T')[0]}
-                  id="global-start"
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-500/20"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Platform Closes</label>
-                <input 
-                  type="date" 
-                  defaultValue={new Date(hrData.systemSettings.globalDeadlineEnd).toISOString().split('T')[0]}
-                  id="global-end"
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-500/20"
-                />
-              </div>
+              <CustomDatePicker
+                label="Platform Opens"
+                value={globalStart}
+                onChange={setGlobalStart}
+                className="w-48"
+              />
+              <CustomDatePicker
+                label="Platform Closes"
+                value={globalEnd}
+                onChange={setGlobalEnd}
+                className="w-48"
+              />
               <button 
                 onClick={async () => {
-                  const start = (document.getElementById("global-start") as HTMLInputElement).value;
-                  const end = (document.getElementById("global-end") as HTMLInputElement).value;
-                  
                   try {
                     const res = await fetch("/api/admin/settings", {
                       method: "POST",
-                      body: JSON.stringify({ startDate: start, endDate: end }),
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ 
+                        globalDeadlineStart: globalStart, 
+                        globalDeadlineEnd: globalEnd 
+                      }),
                     });
                     if (res.ok) {
                       toast.success("Global deadline updated. The system is now synced for all users.");
                       onPageChange({}); 
                     } else {
                       const err = await res.text();
-                      toast.error(`Failed to update settings: ${err}`);
+                      toast.error(`Failed to update deadline: ${err}`);
                     }
                   } catch (e) {
                     toast.error("An unexpected error occurred.");
                   }
                 }}
-                className="mt-5 rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-slate-800 active:scale-95"
+                className="rounded-2xl bg-slate-900 px-6 py-4 text-xs font-bold uppercase tracking-widest text-white shadow-xl shadow-slate-200 transition-all hover:bg-slate-800 active:scale-95 self-end"
               >
-                Sync Global Window
+                Sync Window
               </button>
             </div>
           </div>
@@ -243,42 +296,13 @@ export function HRDashboard({ dashboardData, isLoading, onPageChange, onSort, on
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                        {employee.appraisalId ? (
-                          <div className="flex items-center gap-2">
-                            <div className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-600 border border-indigo-100">
-                              {employee.activeCycleName}
-                            </div>
-                            <select 
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] bg-transparent border-none outline-none cursor-pointer text-slate-400 hover:text-slate-600"
-                              onChange={async (e) => {
-                                const cycleId = e.target.value;
-                                if (!cycleId) return;
-                                await handleAssignCycle(employee.id, cycleId);
-                              }}
-                              value=""
-                            >
-                              <option value="" disabled>Change...</option>
-                              {hrData?.activeCycles?.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                              ))}
-                            </select>
+                      <td className="px-4 py-4">
+                        {employee.activeCycleName ? (
+                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-[10px] font-bold text-indigo-600 border border-indigo-100">
+                            {employee.activeCycleName}
                           </div>
                         ) : (
-                          <select 
-                            className="rounded-lg border border-slate-200 bg-white/60 px-2 py-1 text-[10px] font-bold text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500/20"
-                            onChange={async (e) => {
-                              const cycleId = e.target.value;
-                              if (!cycleId) return;
-                              await handleAssignCycle(employee.id, cycleId);
-                            }}
-                            defaultValue=""
-                          >
-                            <option value="" disabled>Assign Cycle...</option>
-                            {hrData?.activeCycles?.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
+                          <div className="text-xs text-slate-400 italic">No cycle assigned</div>
                         )}
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-600">
@@ -307,13 +331,49 @@ export function HRDashboard({ dashboardData, isLoading, onPageChange, onSort, on
                           <div className="text-sm text-slate-400">N/A</div>
                         )}
                       </td>
-                      <td className="rounded-r-3xl px-4 py-4 text-right">
-                        <button 
-                          onClick={() => toast.info("Employee profile editing will be available soon.")}
-                          className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                        >
-                          <MoreVertical className="h-5 w-5" />
-                        </button>
+                      <td className="rounded-r-3xl px-4 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative flex justify-end">
+                          <button 
+                            onClick={() => setActiveActionsMenu(activeActionsMenu === employee.id ? null : employee.id)}
+                            className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                          >
+                            <MoreVertical className="h-5 w-5" />
+                          </button>
+                          
+                          {activeActionsMenu === employee.id && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-10" 
+                                onClick={() => setActiveActionsMenu(null)}
+                              />
+                              <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-2xl border border-slate-100 bg-white p-2 shadow-2xl ring-1 ring-black/5">
+                                <button
+                                  onClick={() => {
+                                    setEditingEmployee(employee);
+                                    setIsEditModalOpen(true);
+                                    setActiveActionsMenu(null);
+                                  }}
+                                  className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                                >
+                                  Edit Profile
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (employee.appraisalId) {
+                                      window.location.href = `/?view=my-appraisal&appraisalId=${employee.appraisalId}`;
+                                    } else {
+                                      toast.error("No appraisal record found.");
+                                    }
+                                    setActiveActionsMenu(null);
+                                  }}
+                                  className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                                >
+                                  View Appraisal
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -341,6 +401,146 @@ export function HRDashboard({ dashboardData, isLoading, onPageChange, onSort, on
           )}
         </div>
       </div>
+      {/* Edit Employee Modal */}
+      {isEditModalOpen && editingEmployee && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 sm:p-6">
+          <div 
+            className="panel-surface relative w-full max-w-2xl rounded-[40px] border border-white/60 bg-white shadow-2xl animate-in fade-in zoom-in duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-6">
+              <div>
+                <h3 className="text-xl font-black tracking-tight text-slate-900">Edit Employee Profile</h3>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mt-1">Ref: {editingEmployee.employeeCode}</p>
+              </div>
+              <button 
+                onClick={() => setIsEditModalOpen(false)}
+                className="rounded-full p-2 text-slate-400 transition-all hover:bg-white hover:text-slate-900 hover:rotate-90"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data = {
+                  id: editingEmployee.id,
+                  fullName: formData.get("fullName"),
+                  designation: formData.get("designation"),
+                  department: formData.get("department"),
+                  salary: formData.get("salary"),
+                  role: editFormData.role,
+                  managerId: editFormData.managerId,
+                  teamId: editFormData.teamId,
+                  cycleId: editFormData.cycleId,
+                };
+                handleUpdateEmployee(data);
+              }}
+              className="p-8"
+            >
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Full Name</label>
+                  <input 
+                    name="fullName"
+                    defaultValue={editingEmployee.fullName}
+                    className="block w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-bold text-slate-900 outline-none focus:bg-white focus:ring-4 focus:ring-slate-900/5 transition-all"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Designation</label>
+                  <input 
+                    name="designation"
+                    defaultValue={editingEmployee.designation}
+                    className="block w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-bold text-slate-900 outline-none focus:bg-white focus:ring-4 focus:ring-slate-900/5 transition-all"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Department</label>
+                  <input 
+                    name="department"
+                    defaultValue={editingEmployee.department}
+                    className="block w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-bold text-slate-900 outline-none focus:bg-white focus:ring-4 focus:ring-slate-900/5 transition-all"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Salary (Monthly)</label>
+                  <div className="relative">
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₹</span>
+                    <input 
+                      name="salary"
+                      type="number"
+                      defaultValue={editingEmployee.salary || 0}
+                      className="block w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-5 py-3.5 text-sm font-bold text-slate-900 outline-none focus:bg-white focus:ring-4 focus:ring-slate-900/5 transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+                <CustomSelect
+                  label="Organizational Role"
+                  options={[
+                    { id: "EMPLOYEE", name: "Employee" },
+                    { id: "MANAGER", name: "Manager" },
+                    { id: "HR", name: "HR Administrator" },
+                    { id: "CEO", name: "Executive (CEO)" }
+                  ]}
+                  value={editFormData.role}
+                  onChange={(val) => setEditFormData(prev => ({ ...prev, role: val }))}
+                />
+                <CustomSelect
+                  label="Reports To (Manager)"
+                  options={[
+                    { id: "none", name: "No Manager (Self)" },
+                    ...(hrData?.allEmployees.filter(e => e.id !== editingEmployee.id).map(e => ({ id: e.id, name: e.fullName })) || [])
+                  ]}
+                  value={editFormData.managerId}
+                  onChange={(val) => setEditFormData(prev => ({ ...prev, managerId: val }))}
+                />
+                <CustomSelect
+                  label="Assigned Team"
+                  options={[
+                    { id: "none", name: "Unassigned / System" },
+                    ...(hrData?.allTeams.map(t => ({ id: t.id, name: t.name })) || [])
+                  ]}
+                  value={editFormData.teamId}
+                  onChange={(val) => setEditFormData(prev => ({ ...prev, teamId: val }))}
+                />
+                <CustomSelect
+                  label="Appraisal Cycle"
+                  options={[
+                    { id: "", name: `Keep current cycle (${editingEmployee.activeCycleName || "None"})` },
+                    ...(hrData?.activeCycles.map(c => ({ id: c.id, name: c.name })) || [])
+                  ]}
+                  value={editFormData.cycleId}
+                  onChange={(val) => setEditFormData(prev => ({ ...prev, cycleId: val }))}
+                />
+              </div>
+
+              <div className="mt-12 flex items-center gap-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="h-14 flex-1 rounded-2xl border border-slate-200 bg-white text-xs font-black uppercase tracking-[0.2em] text-slate-400 transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="h-14 flex-[2] flex items-center justify-center gap-3 rounded-2xl bg-slate-900 text-xs font-black uppercase tracking-[0.2em] text-white shadow-2xl shadow-slate-900/20 transition-all hover:-translate-y-0.5 hover:bg-slate-800 active:scale-95"
+                >
+                  <Save className="h-4 w-4" />
+                  Save Profile
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

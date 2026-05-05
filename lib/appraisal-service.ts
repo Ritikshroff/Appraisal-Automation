@@ -100,6 +100,7 @@ type DashboardQueryOptions = {
   topPerformersPage?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  view?: string;
 };
 
 const DASHBOARD_PAGE_SIZES = {
@@ -136,6 +137,7 @@ function serializeActor(employee: {
   role: Role;
   teamId: string | null;
   team?: { name: string } | null;
+  managerId: string | null;
   manager?: { fullName: string } | null;
   finalReviewerName?: string | null;
   doj?: Date | null;
@@ -154,6 +156,7 @@ function serializeActor(employee: {
     role: employee.role,
     teamId: employee.teamId ?? null,
     teamName: employee.team?.name ?? null,
+    managerId: employee.managerId ?? null,
     managerName: employee.manager?.fullName ?? null,
     finalReviewerName: employee.finalReviewerName ?? null,
     doj: employee.doj?.toISOString() ?? null,
@@ -781,12 +784,15 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
   const filters = normalizeDashboardFilters(options);
   const searchWhere = buildAppraisalSearchWhere(filters.query);
 
+  const view = options?.view || "dashboard";
   const scope: Prisma.AppraisalWhereInput =
-    user.role === Role.CEO || user.role === Role.HR
-      ? {}
-      : user.role === Role.MANAGER
-        ? { teamId: user.teamId ?? "__missing_team__" }
-        : { employeeId: user.employeeId ?? "__missing_employee__" };
+    view === "my-appraisal"
+      ? { employeeId: user.employeeId ?? "__missing_employee__" }
+      : user.role === Role.CEO || user.role === Role.HR
+        ? {}
+        : user.role === Role.MANAGER
+          ? { teamId: user.teamId ?? "__missing_team__" }
+          : { employeeId: user.employeeId ?? "__missing_employee__" };
 
   const visibleWhere = combineWhere(scope, searchWhere);
   const pendingWhere = combineWhere(
@@ -861,6 +867,7 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
             prisma.appraisalCycle.findMany({ where: { isActive: true } }),
             prisma.team.findMany({ include: { manager: true } }),
             prisma.systemSettings.findUnique({ where: { id: "GLOBAL" } }),
+            prisma.employee.findMany({ select: { id: true, fullName: true }, orderBy: { fullName: 'asc' } }),
           ])
         : Promise.resolve(null),
       /*
@@ -919,6 +926,7 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
             globalDeadlineStart: (hrRawData[3]?.globalDeadlineStart ?? new Date()).toISOString(),
             globalDeadlineEnd: (hrRawData[3]?.globalDeadlineEnd ?? new Date()).toISOString(),
           },
+          allEmployees: hrRawData[4] || [],
         }
       : null,
   };

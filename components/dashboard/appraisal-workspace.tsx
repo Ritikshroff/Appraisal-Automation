@@ -10,6 +10,7 @@ import {
   Search,
   Sparkles,
   ShieldCheck,
+  Clock,
 } from "lucide-react";
 import type {
   AppraisalDetail,
@@ -211,6 +212,12 @@ export function AppraisalWorkspace({
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
                       {getCurrentStageLabel(appraisalDetail.status)}
                     </span>
+                    {appraisalDetail.deadlineAt && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600 ring-1 ring-inset ring-rose-200">
+                        <Clock className="h-3.5 w-3.5" />
+                        Deadline: {new Date(appraisalDetail.deadlineAt).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                   <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">
                     {appraisalDetail.employee.fullName}
@@ -539,49 +546,12 @@ export function AppraisalWorkspace({
                 </div>
             </div>
 
-            {/* AI Insights Section */}
+            {/* AI Insights Section Hidden */}
+            {/* 
             <div className="bg-gradient-panel backdrop-blur-xl rounded-[30px] border border-white/60 p-6 shadow-premium">
-                 <div className="flex items-center gap-3 mb-6">
-                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-ai text-white shadow-lg shadow-indigo-500/20">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-400">Google Gemini Power-up</p>
-                    <div className="flex items-center gap-2">
-                       <h3 className="text-xl font-semibold text-slate-900">Performance DNA</h3>
-                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
-                         <ShieldCheck className="h-3 w-3" />
-                         UNBIASED CALIBRATION
-                       </span>
-                    </div>
-                  </div>
-               </div>
-               
-               <div className="grid gap-6 lg:grid-cols-2">
-                  <div className="rounded-[24px] border border-slate-100 bg-white p-5">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
-                      <BrainCircuit className="h-4 w-4 text-slate-400" />
-                      Executive Summary
-                    </div>
-                    <p className="text-sm leading-relaxed text-slate-600 italic">
-                       &quot;{appraisalDetail.aiSummary || "Analysis will be generated upon review submission."}&quot;
-                    </p>
-                  </div>
-                  <div className="rounded-[24px] border border-slate-100 bg-white p-5 flex flex-col justify-center">
-                    <div className="flex items-center justify-between mb-2">
-                       <span className="text-sm font-semibold text-slate-700">Sentiment Velocity</span>
-                       {appraisalDetail.sentimentLabel && (
-                          <span className={clsx("rounded-full px-3 py-1 text-[10px] font-bold uppercase", sentimentAccent[appraisalDetail.sentimentLabel])}>
-                            {appraisalDetail.sentimentLabel}
-                          </span>
-                       )}
-                    </div>
-                    <div className="text-4xl font-black text-slate-900">
-                       {appraisalDetail.sentimentScore?.toFixed(2) ?? "0.00"}<span className="text-base font-normal text-slate-400 ml-1">/ 1.0</span>
-                    </div>
-                  </div>
-               </div>
+               ... AI UI code ...
             </div>
+            */}
           </>
         )}
       </div>

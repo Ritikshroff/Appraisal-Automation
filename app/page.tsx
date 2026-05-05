@@ -10,21 +10,30 @@ import type { NavigationView, RoleValue, SessionUserSummary } from "@/lib/types"
 export const dynamic = "force-dynamic";
 
 function resolveView(role: Role, value: string | undefined): NavigationView {
-  const defaultView = getDefaultViewForRole(role) as NavigationView;
+  const defaultView = getDefaultViewForRole(role as RoleValue) as NavigationView;
 
   if (!value) {
     return defaultView;
   }
 
+  // HR can access hr-panel and my-appraisal (for viewing employee details)
+  if (role === "HR") {
+    if (value === "my-appraisal") return "my-appraisal";
+    return "hr-panel";
+  }
+
+  // CEO can ONLY access ceo-panel
+  if (role === "CEO") {
+    return "ceo-panel";
+  }
+
+  // Managers can access dashboard, my-appraisal, and team-reviews
+  if (role === "MANAGER" && ["dashboard", "my-appraisal", "team-reviews"].includes(value)) {
+    return value as NavigationView;
+  }
+
+  // Employees can access dashboard and my-appraisal
   if (role === "EMPLOYEE" && ["dashboard", "my-appraisal"].includes(value)) {
-    return value as NavigationView;
-  }
-
-  if (role === "MANAGER" && ["dashboard", "team-reviews"].includes(value)) {
-    return value as NavigationView;
-  }
-
-  if (role === "CEO" && ["dashboard", "ceo-panel"].includes(value)) {
     return value as NavigationView;
   }
 

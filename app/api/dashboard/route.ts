@@ -26,6 +26,8 @@ export async function GET(request: Request) {
       pendingPage: parsePage(url.searchParams.get("pendingPage")),
       teamStatusPage: parsePage(url.searchParams.get("teamStatusPage")),
       topPerformersPage: parsePage(url.searchParams.get("topPerformersPage")),
+      sortBy: url.searchParams.get("sortBy") ?? undefined,
+      sortOrder: (url.searchParams.get("sortOrder") as "asc" | "desc") ?? undefined,
     });
     return NextResponse.json(data);
   } catch (error) {
@@ -36,7 +38,7 @@ export async function GET(request: Request) {
     console.error("Failed to load dashboard data", error);
     return NextResponse.json(
       { error: "Unable to load dashboard data. Check your database connection." },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

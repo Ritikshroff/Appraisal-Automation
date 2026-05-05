@@ -15,67 +15,51 @@ type AuthUserRow = {
   employeeId: string | null;
 };
 
-function getAuthPool() {
-  return getPool();
-}
+import { prisma } from "@/lib/prisma";
 
 async function findUserByEmail(email: string) {
-  const pool = getAuthPool();
-  if (!pool) return null;
   try {
-    const result = await pool.query<AuthUserRow>(
-      `
-        SELECT
-          u.id,
-          u.email,
-          u."passwordHash",
-          u.name,
-          u.role,
-          u."teamId",
-          u."employeeId",
-          t.name as "teamName"
-        FROM "User" u
-        LEFT JOIN "Team" t ON t.id = u."teamId"
-        WHERE u.email = $1
-        LIMIT 1
-      `,
-      [email],
-    );
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        team: {
+          select: { name: true }
+        }
+      }
+    });
 
-    return result.rows[0] ?? null;
+    if (!user) return null;
+
+    return {
+      ...user,
+      teamName: user.team?.name ?? null
+    };
   } catch (error) {
     console.error("Auth helper findUserByEmail error:", error);
-    return null;
+    throw error;
   }
 }
 
 async function findUserById(id: string) {
-  const pool = getAuthPool();
-  if (!pool) return null;
   try {
-    const result = await pool.query<AuthUserRow & { teamName: string | null }>(
-      `
-        SELECT
-          u.id,
-          u.email,
-          u."passwordHash",
-          u.name,
-          u.role,
-          u."teamId",
-          u."employeeId",
-          t.name as "teamName"
-        FROM "User" u
-        LEFT JOIN "Team" t ON t.id = u."teamId"
-        WHERE u.id = $1
-        LIMIT 1
-      `,
-      [id],
-    );
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        team: {
+          select: { name: true }
+        }
+      }
+    });
 
-    return result.rows[0] ?? null;
+    if (!user) return null;
+
+    return {
+      ...user,
+      teamName: user.team?.name ?? null
+    };
   } catch (error) {
     console.error("Auth helper findUserById error:", error);
-    return null;
+    throw error;
   }
 }
 

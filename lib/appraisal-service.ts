@@ -22,6 +22,7 @@ import type {
   MetricCardData,
   PageInfo,
   PaginatedCollection,
+  RoleValue,
   SessionUserSummary,
   TeamProgressRow,
   TeamStatusItem,
@@ -97,6 +98,8 @@ type DashboardQueryOptions = {
   pendingPage?: number;
   teamStatusPage?: number;
   topPerformersPage?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 };
 
 const DASHBOARD_PAGE_SIZES = {
@@ -104,6 +107,7 @@ const DASHBOARD_PAGE_SIZES = {
   pendingAppraisals: 6,
   teamMemberStatuses: 8,
   topPerformers: 5,
+  employees: 10,
 } as const;
 
 export class UserContextError extends Error {
@@ -117,8 +121,9 @@ export function isUserContextError(error: unknown): error is UserContextError {
   return error instanceof UserContextError;
 }
 
-function toNumber(value: Prisma.Decimal | null) {
-  return value ? Number(value) : null;
+function toNumber(value: any) {
+  if (value === null || value === undefined) return null;
+  return Number(value);
 }
 
 function serializeActor(employee: {
@@ -132,6 +137,12 @@ function serializeActor(employee: {
   teamId: string | null;
   team?: { name: string } | null;
   manager?: { fullName: string } | null;
+  finalReviewerName?: string | null;
+  doj?: Date | null;
+  salary?: number | null;
+  lastHike?: number | null;
+  activeCycleName?: string | null;
+  appraisalId?: string | null;
 }): ActorSummary {
   return {
     id: employee.id,
@@ -144,6 +155,12 @@ function serializeActor(employee: {
     teamId: employee.teamId ?? null,
     teamName: employee.team?.name ?? null,
     managerName: employee.manager?.fullName ?? null,
+    finalReviewerName: employee.finalReviewerName ?? null,
+    doj: employee.doj?.toISOString() ?? null,
+    salary: employee.salary ?? null,
+    lastHike: employee.lastHike ?? null,
+    activeCycleName: employee.activeCycleName ?? null,
+    appraisalId: employee.appraisalId ?? null,
   };
 }
 
@@ -204,29 +221,56 @@ function serializeTeamStatusItem(appraisal: AppraisalListRecord): TeamStatusItem
   };
 }
 
-function parseQuestionAnswers(value: Prisma.JsonValue | null | undefined) {
-  if (!Array.isArray(value)) {
+function parseQuestionAnswers(value: any) {
+  let data = value;
+  if (typeof value === "string") {
+    try {
+      data = JSON.parse(value);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!Array.isArray(data)) {
     return normalizeSectionAnswers(undefined);
   }
 
   return normalizeSectionAnswers(
-    value.map((item) => ({
+    data.map((item: any) => ({
       question: typeof item === "object" && item && "question" in item ? String(item.question) : "",
       answer: typeof item === "object" && item && "answer" in item ? String(item.answer) : "",
     })),
   );
 }
 
-function parseStringArray(value: Prisma.JsonValue | null | undefined) {
-  if (!Array.isArray(value)) {
+function parseStringArray(value: any) {
+  let data = value;
+  if (typeof value === "string") {
+    try {
+      data = JSON.parse(value);
+    } catch {
+      data = [];
+    }
+  }
+
+  if (!Array.isArray(data)) {
     return [];
   }
 
-  return value.map((item) => String(item)).filter(Boolean);
+  return data.map((item: any) => String(item)).filter(Boolean);
 }
 
-function parseManagerReview(value: Prisma.JsonValue | null | undefined, managerOverallRating: number | null) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function parseManagerReview(value: any, managerOverallRating: number | null) {
+  let data = value;
+  if (typeof value === "string") {
+    try {
+      data = JSON.parse(value);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
     return {
       overallRating: managerOverallRating,
       comments: "",
@@ -235,18 +279,27 @@ function parseManagerReview(value: Prisma.JsonValue | null | undefined, managerO
 
   return {
     overallRating:
-      "overallRating" in value && value.overallRating !== null ? Number(value.overallRating) : managerOverallRating,
+      "overallRating" in data && data.overallRating !== null ? Number(data.overallRating) : managerOverallRating,
     comments:
-      "comments" in value
-        ? String(value.comments ?? "")
-        : "recommendations" in value
-          ? String(value.recommendations ?? "")
+      "comments" in data
+        ? String(data.comments ?? "")
+        : "recommendations" in data
+          ? String(data.recommendations ?? "")
           : "",
   };
 }
 
-function parseCeoReview(value: Prisma.JsonValue | null | undefined, finalRating: number | null, hikePercentage: number | null) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function parseCeoReview(value: any, finalRating: number | null, hikePercentage: number | null) {
+  let data = value;
+  if (typeof value === "string") {
+    try {
+      data = JSON.parse(value);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
     return {
       comments: "",
       finalRating,
@@ -255,10 +308,10 @@ function parseCeoReview(value: Prisma.JsonValue | null | undefined, finalRating:
   }
 
   return {
-    comments: "comments" in value ? String(value.comments ?? "") : "",
-    finalRating: "finalRating" in value && value.finalRating !== null ? Number(value.finalRating) : finalRating,
+    comments: "comments" in data ? String(data.comments ?? "") : "",
+    finalRating: "finalRating" in data && data.finalRating !== null ? Number(data.finalRating) : finalRating,
     hikePercentage:
-      "hikePercentage" in value && value.hikePercentage !== null ? Number(value.hikePercentage) : hikePercentage,
+      "hikePercentage" in data && data.hikePercentage !== null ? Number(data.hikePercentage) : hikePercentage,
   };
 }
 
@@ -284,56 +337,81 @@ function getEmployeeProfileOrThrow(user: AuthUserRecord) {
 }
 
 function isAllowedToView(user: AuthUserRecord, appraisal: AppraisalRecord) {
-  if (user.role === Role.CEO) {
+  if (user.role === Role.CEO || user.role === Role.HR) {
     return true;
   }
 
-  if (user.role === Role.MANAGER) {
-    return Boolean(user.teamId) && appraisal.teamId === user.teamId;
+  // Can view own appraisal
+  if (user.employeeId === appraisal.employeeId) {
+    return true;
   }
 
-  return Boolean(user.employeeId) && appraisal.employeeId === user.employeeId;
+  // Can view if they are the direct manager
+  if (user.employeeId === appraisal.managerId) {
+    return true;
+  }
+
+  // Can view if they are the manager of the team
+  if (user.role === Role.MANAGER && user.teamId && appraisal.teamId === user.teamId) {
+    return true;
+  }
+
+  return false;
 }
 
 function canSave(user: AuthUserRecord, appraisal: AppraisalRecord) {
-  if (user.role === Role.EMPLOYEE) {
-    return appraisal.employeeId === user.employeeId && appraisal.status === AppraisalStatus.DRAFT;
+  // Anyone can save their own appraisal if it's in DRAFT or SUBMITTED (resubmission allowed during window)
+  if (user.employeeId === appraisal.employeeId && 
+     (appraisal.status === AppraisalStatus.DRAFT || appraisal.status === AppraisalStatus.SUBMITTED)) {
+    return true;
   }
 
-  if (user.role === Role.MANAGER) {
-    return (
-      appraisal.managerId === user.employeeId &&
-      (appraisal.status === AppraisalStatus.SUBMITTED || appraisal.status === AppraisalStatus.DRAFT)
-    );
+  // Managers (including HR/CEO if they are the manager) can save their reports' appraisals
+  if (user.employeeId === appraisal.managerId && 
+     (appraisal.status === AppraisalStatus.SUBMITTED || appraisal.status === AppraisalStatus.DRAFT)) {
+    return true;
   }
 
-  if (user.role === Role.CEO) {
-    return appraisal.status === AppraisalStatus.MANAGER_REVIEW;
+  // CEO specifically can save during final review
+  if (user.role === Role.CEO && appraisal.status === AppraisalStatus.MANAGER_REVIEW) {
+    return true;
   }
 
   return false;
 }
 
 function canSubmit(user: AuthUserRecord, appraisal: AppraisalRecord) {
-  if (user.role === Role.MANAGER) {
-    return appraisal.managerId === user.employeeId && appraisal.status === AppraisalStatus.SUBMITTED;
+  // Managers submitting their review
+  if (user.employeeId === appraisal.managerId && appraisal.status === AppraisalStatus.SUBMITTED) {
+    return true;
   }
   return canSave(user, appraisal);
 }
 
-function buildPermissions(user: AuthUserRecord, appraisal: AppraisalRecord): AppraisalPermissions {
-  const saveAllowed = canSave(user, appraisal);
-  const submitAllowed = canSubmit(user, appraisal);
+function isInsideWindow(settings: { globalDeadlineStart: Date; globalDeadlineEnd: Date } | null) {
+  if (!settings) return true;
+  const now = new Date();
+  return now >= settings.globalDeadlineStart && now <= settings.globalDeadlineEnd;
+}
+
+function buildPermissions(
+  user: AuthUserRecord, 
+  appraisal: AppraisalRecord, 
+  settings: { globalDeadlineStart: Date; globalDeadlineEnd: Date } | null
+): AppraisalPermissions {
+  const windowOpen = isInsideWindow(settings);
+  const saveAllowed = windowOpen && canSave(user, appraisal);
+  const submitAllowed = windowOpen && canSubmit(user, appraisal);
 
   return {
     canSave: saveAllowed,
     canSubmit: submitAllowed,
-    canEditEmployeeSection: saveAllowed && user.role === Role.EMPLOYEE && appraisal.status === AppraisalStatus.DRAFT,
-    canEditManagerSection: saveAllowed && user.role === Role.MANAGER && appraisal.status === AppraisalStatus.SUBMITTED,
+    canEditEmployeeSection: saveAllowed && user.employeeId === appraisal.employeeId && (appraisal.status === AppraisalStatus.DRAFT || appraisal.status === AppraisalStatus.SUBMITTED),
+    canEditManagerSection: saveAllowed && user.employeeId === appraisal.managerId && appraisal.status === AppraisalStatus.SUBMITTED,
     canEditCEOSection: saveAllowed && user.role === Role.CEO && appraisal.status === AppraisalStatus.MANAGER_REVIEW,
-    canEditKRASection: saveAllowed && (user.role === Role.EMPLOYEE || user.role === Role.MANAGER),
+    canEditKRASection: saveAllowed && (user.employeeId === appraisal.employeeId || user.employeeId === appraisal.managerId),
     currentStageLabel: getCurrentStageLabel(appraisal.status),
-    nextActionLabel: submitAllowed ? getSubmitLabelForRole(user.role) : null,
+    nextActionLabel: submitAllowed ? getSubmitLabelForRole(user.role as RoleValue) : null,
   };
 }
 
@@ -352,6 +430,8 @@ function normalizeDashboardFilters(options?: DashboardQueryOptions): DashboardFi
     pendingPage: normalizePage(options?.pendingPage),
     teamStatusPage: normalizePage(options?.teamStatusPage),
     topPerformersPage: normalizePage(options?.topPerformersPage),
+    sortBy: options?.sortBy,
+    sortOrder: options?.sortOrder,
   };
 }
 
@@ -397,42 +477,41 @@ function buildAppraisalSearchWhere(query: string): Prisma.AppraisalWhereInput | 
       {
         employee: {
           is: {
-            fullName: { contains: trimmedQuery, mode: "insensitive" },
+            fullName: { contains: trimmedQuery },
           },
         },
       },
       {
         employee: {
           is: {
-            employeeCode: { contains: trimmedQuery, mode: "insensitive" },
+            employeeCode: { contains: trimmedQuery },
           },
         },
       },
       {
         team: {
           is: {
-            name: { contains: trimmedQuery, mode: "insensitive" },
+            name: { contains: trimmedQuery },
           },
         },
       },
       {
         cycle: {
           is: {
-            name: { contains: trimmedQuery, mode: "insensitive" },
+            name: { contains: trimmedQuery },
           },
         },
       },
       {
         manager: {
           is: {
-            fullName: { contains: trimmedQuery, mode: "insensitive" },
+            fullName: { contains: trimmedQuery },
           },
         },
       },
       {
         appraisalPeriod: {
           contains: trimmedQuery,
-          mode: "insensitive",
         },
       },
     ],
@@ -468,6 +547,63 @@ async function paginateAppraisalCollection<TItem>({
   return {
     items: records.map((item) => serialize(item)),
     pageInfo,
+  };
+}
+
+async function paginateEmployeeCollection({
+  where,
+  page,
+  pageSize,
+  orderBy,
+}: {
+  where: Prisma.EmployeeWhereInput;
+  page: number;
+  pageSize: number;
+  orderBy: Prisma.EmployeeOrderByWithRelationInput | Prisma.EmployeeOrderByWithRelationInput[];
+}): Promise<PaginatedCollection<ActorSummary>> {
+  const totalItems = await prisma.employee.count({ where });
+  const pageInfo = createPageInfo(page, pageSize, totalItems);
+  const ceo = await prisma.employee.findFirst({ where: { role: Role.CEO }, select: { fullName: true } });
+  const records = totalItems > 0
+    ? await prisma.employee.findMany({
+        where,
+        include: { 
+          team: true, 
+          manager: true,
+          appraisals: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: { cycle: true }
+          }
+        },
+        orderBy,
+        skip: (pageInfo.page - 1) * pageSize,
+        take: pageSize,
+      })
+    : [];
+
+  return {
+    items: records.map((r) => serializeActor({ 
+      ...r, 
+      finalReviewerName: ceo?.fullName,
+      activeCycleName: (r as any).appraisals?.[0]?.cycle?.name || "No Active Cycle",
+      appraisalId: (r as any).appraisals?.[0]?.id || null
+    })),
+    pageInfo,
+  };
+}
+
+function buildEmployeeSearchWhere(query: string): Prisma.EmployeeWhereInput | undefined {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return undefined;
+
+  return {
+    OR: [
+      { fullName: { contains: trimmedQuery } },
+      { employeeCode: { contains: trimmedQuery } },
+      { email: { contains: trimmedQuery } },
+      { department: { contains: trimmedQuery } },
+    ],
   };
 }
 
@@ -629,11 +765,13 @@ function buildMetrics(
       value: String(counts.completed),
       detail: "CEO finalized appraisals.",
     },
+    /*
     {
       label: "Budget Impact",
       value: `${budgetImpact ? budgetImpact.totalHikePercentage.toFixed(1) : "0.0"}%`,
       detail: "Aggregate approved hike percentage.",
     },
+    */
   ];
 }
 
@@ -644,7 +782,7 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
   const searchWhere = buildAppraisalSearchWhere(filters.query);
 
   const scope: Prisma.AppraisalWhereInput =
-    user.role === Role.CEO
+    user.role === Role.CEO || user.role === Role.HR
       ? {}
       : user.role === Role.MANAGER
         ? { teamId: user.teamId ?? "__missing_team__" }
@@ -671,13 +809,24 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
     status: AppraisalStatus.COMPLETED,
     finalRating: { not: null },
   });
-  const budgetImpactWhere = combineWhere(scope, {
+  const budgetImpactWhere: Prisma.AppraisalWhereInput = combineWhere(scope, {
     type: "SALARY",
     status: AppraisalStatus.COMPLETED,
     hikePercentage: { not: null },
   });
 
-  const [counts, visibleAppraisals, pendingAppraisals, teamMemberStatuses, topPerformers, teamSummary, budgetAggregate] =
+  const employeeOrderBy: Prisma.EmployeeOrderByWithRelationInput = {};
+  if (filters.sortBy === "name") {
+    employeeOrderBy.fullName = filters.sortOrder || "asc";
+  } else if (filters.sortBy === "department") {
+    employeeOrderBy.department = filters.sortOrder || "asc";
+  } else if (filters.sortBy === "employeeId") {
+    employeeOrderBy.employeeCode = filters.sortOrder || "asc";
+  } else {
+    employeeOrderBy.fullName = "asc";
+  }
+
+  const [counts, visibleAppraisals, pendingAppraisals, teamMemberStatuses, hrRawData, topPerformers, teamSummary, budgetAggregate] =
     await Promise.all([
       buildStatusCounts(scope),
       paginateAppraisalCollection({
@@ -701,6 +850,20 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
         orderBy: [{ updatedAt: "desc" }],
         serialize: serializeTeamStatusItem,
       }),
+      user.role === Role.HR
+        ? Promise.all([
+            paginateEmployeeCollection({
+              where: buildEmployeeSearchWhere(filters.query) ?? {},
+              page: filters.visiblePage,
+              pageSize: DASHBOARD_PAGE_SIZES.employees,
+              orderBy: employeeOrderBy,
+            }),
+            prisma.appraisalCycle.findMany({ where: { isActive: true } }),
+            prisma.team.findMany({ include: { manager: true } }),
+            prisma.systemSettings.findUnique({ where: { id: "GLOBAL" } }),
+          ])
+        : Promise.resolve(null),
+      /*
       paginateAppraisalCollection({
         where: topPerformersWhere,
         page: filters.topPerformersPage,
@@ -708,6 +871,8 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
         orderBy: [{ finalRating: "desc" }, { updatedAt: "desc" }],
         serialize: serializeAppraisalListItem,
       }),
+      */
+      Promise.resolve({ items: [], pageInfo: createPageInfo(1, 1, 0) }),
       buildTeamSummary(scope),
       prisma.appraisal.aggregate({
         where: budgetImpactWhere,
@@ -730,13 +895,32 @@ export async function getDashboardData(userId: string, options?: DashboardQueryO
     viewer: serializeViewer(user),
     actor,
     filters,
-    metrics: buildMetrics(user, counts, budgetImpact),
+    metrics: buildMetrics(user, counts, null),
     visibleAppraisals,
     pendingAppraisals,
     teamMemberStatuses,
-    teamSummary,
-    topPerformers,
-    budgetImpact,
+    teamSummary: [],
+    topPerformers: { items: [], pageInfo: createPageInfo(1, 1, 0) },
+    budgetImpact: null,
+    hrData: hrRawData
+      ? {
+          employees: hrRawData[0] as PaginatedCollection<ActorSummary>,
+          activeCycles: (hrRawData[1] as any[]).map((c) => ({
+            id: c.id,
+            name: c.name,
+            appraisalType: c.appraisalType,
+            periodLabel: c.periodLabel,
+            startDate: c.startDate.toISOString(),
+            endDate: c.endDate.toISOString(),
+            isActive: c.isActive,
+          })),
+          allTeams: hrRawData[2].map(serializeTeam),
+          systemSettings: {
+            globalDeadlineStart: (hrRawData[3]?.globalDeadlineStart ?? new Date()).toISOString(),
+            globalDeadlineEnd: (hrRawData[3]?.globalDeadlineEnd ?? new Date()).toISOString(),
+          },
+        }
+      : null,
   };
 }
 
@@ -750,6 +934,9 @@ export async function getAppraisalDetail(userId: string, appraisalId: string): P
   if (!appraisal || !isAllowedToView(user, appraisal)) {
     return null;
   }
+
+  const settings = await prisma.systemSettings.findUnique({ where: { id: "GLOBAL" } });
+  const permissions = buildPermissions(user, appraisal, settings);
 
   return {
     id: appraisal.id,
@@ -804,10 +991,11 @@ export async function getAppraisalDetail(userId: string, appraisalId: string): P
     strengths: parseStringArray(appraisal.aiStrengths),
     weaknesses: parseStringArray(appraisal.aiWeaknesses),
     riskSignals: parseStringArray(appraisal.aiRiskSignals),
-    permissions: buildPermissions(user, appraisal),
+    permissions,
     employeeSubmittedAt: appraisal.employeeSubmittedAt?.toISOString() ?? null,
     managerSubmittedAt: appraisal.managerSubmittedAt?.toISOString() ?? null,
     ceoSubmittedAt: appraisal.ceoSubmittedAt?.toISOString() ?? null,
+    deadlineAt: appraisal.deadlineAt?.toISOString() || null,
     updatedAt: appraisal.updatedAt.toISOString(),
   };
 }
@@ -882,9 +1070,9 @@ async function refreshAnalysis(appraisalId: string) {
       aiPerformanceSummary: analysis.performanceSummary,
       sentimentLabel: analysis.sentimentLabel,
       sentimentScore: analysis.sentimentScore,
-      aiStrengths: analysis.strengths,
-      aiWeaknesses: analysis.weaknesses,
-      aiRiskSignals: analysis.riskSignals,
+      aiStrengths: JSON.stringify(analysis.strengths),
+      aiWeaknesses: JSON.stringify(analysis.weaknesses),
+      aiRiskSignals: JSON.stringify(analysis.riskSignals),
       analyzedAt: new Date(),
     },
   });
@@ -917,7 +1105,7 @@ export async function mutateAppraisal(userId: string, payload: AppraisalMutation
     const data: Prisma.AppraisalUpdateInput = {};
 
     if (user.role === Role.EMPLOYEE) {
-      data.sectionOneAnswers = normalizeSectionAnswers(payload.sectionOneAnswers) as Prisma.InputJsonValue;
+      data.sectionOneAnswers = JSON.stringify(normalizeSectionAnswers(payload.sectionOneAnswers));
       data.status = mode === "submit" ? AppraisalStatus.SUBMITTED : AppraisalStatus.DRAFT;
       data.employeeSubmittedAt = mode === "submit" ? new Date() : appraisal.employeeSubmittedAt;
 
@@ -959,7 +1147,7 @@ export async function mutateAppraisal(userId: string, payload: AppraisalMutation
         comments: payload.managerReview?.comments?.trim() ?? "",
       };
 
-      data.managerReview = managerReview as Prisma.InputJsonValue;
+      data.managerReview = JSON.stringify(managerReview);
       data.managerOverallRating = managerReview.overallRating;
       data.status = mode === "submit" ? AppraisalStatus.MANAGER_REVIEW : appraisal.status;
       data.managerSubmittedAt = mode === "submit" ? new Date() : appraisal.managerSubmittedAt;
@@ -1003,11 +1191,11 @@ export async function mutateAppraisal(userId: string, payload: AppraisalMutation
           ? null
           : roundTo(clampScale(Number(payload.ceoReview?.hikePercentage ?? 0), 0, 100));
 
-      data.ceoReview = {
+      data.ceoReview = JSON.stringify({
         comments: payload.ceoReview?.comments?.trim() ?? "",
         finalRating,
         hikePercentage,
-      } as Prisma.InputJsonValue;
+      });
       data.finalRating = finalRating;
       data.hikePercentage = hikePercentage;
       data.status = mode === "submit" ? AppraisalStatus.COMPLETED : appraisal.status;
@@ -1020,9 +1208,113 @@ export async function mutateAppraisal(userId: string, payload: AppraisalMutation
     });
   });
 
+  /*
   if (user.role !== Role.EMPLOYEE) {
     await refreshAnalysis(appraisal.id);
   }
+  */
 
   return getAppraisalDetail(userId, appraisal.id);
+}
+
+export async function updateCycleWindow(
+  cycleId: string,
+  startDate: string,
+  endDate: string,
+  user: SessionUserSummary
+) {
+  if (user.role !== "HR" && user.role !== "CEO") {
+    throw new Error("Unauthorized");
+  }
+
+  return await prisma.appraisalCycle.update({
+    where: { id: cycleId },
+    data: {
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+    },
+  });
+}
+
+export async function assignEmployeeToCycle(
+  employeeId: string,
+  cycleId: string,
+  user: SessionUserSummary
+) {
+  if (user.role !== "HR" && user.role !== "CEO") {
+    throw new Error("Unauthorized");
+  }
+
+  const cycle = await prisma.appraisalCycle.findUnique({ where: { id: cycleId } });
+  if (!cycle) throw new Error("Cycle not found");
+
+  const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
+  if (!emp) throw new Error("Employee not found");
+
+  // Check if there is an existing appraisal for this cycle
+  const existing = await prisma.appraisal.findFirst({
+    where: { employeeId, cycleId }
+  });
+
+  if (existing) {
+    return existing; // Already assigned
+  }
+
+  // Create new appraisal
+  let targetTeamId = emp.teamId;
+  if (!targetTeamId) {
+    const firstTeam = await prisma.team.findFirst({ select: { id: true } });
+    targetTeamId = firstTeam?.id || "SYSTEM_FALLBACK";
+  }
+
+  return await prisma.appraisal.create({
+    data: {
+      employeeId,
+      teamId: targetTeamId,
+      cycleId,
+      managerId: emp.managerId,
+      type: cycle.appraisalType,
+      appraisalPeriod: cycle.periodLabel,
+      status: "DRAFT",
+    }
+  });
+}
+
+export async function enrollAllEmployees(cycleId: string, user: SessionUserSummary) {
+  if (user.role !== "HR" && user.role !== "CEO") {
+    throw new Error("Unauthorized");
+  }
+
+  const cycle = await prisma.appraisalCycle.findUnique({ where: { id: cycleId } });
+  if (!cycle) throw new Error("Cycle not found");
+
+  const employees = await prisma.employee.findMany({
+    where: {
+      role: { not: "CEO" },
+    }
+  });
+
+  let count = 0;
+  for (const emp of employees) {
+    const existing = await prisma.appraisal.findFirst({
+      where: { employeeId: emp.id, cycleId: cycleId }
+    });
+    
+    if (!existing) {
+      await prisma.appraisal.create({
+        data: {
+          employeeId: emp.id,
+          teamId: emp.teamId || "SYSTEM", 
+          cycleId: cycleId,
+          managerId: emp.managerId,
+          type: cycle.appraisalType,
+          appraisalPeriod: cycle.periodLabel,
+          status: "DRAFT",
+        }
+      });
+      count++;
+    }
+  }
+
+  return { count };
 }

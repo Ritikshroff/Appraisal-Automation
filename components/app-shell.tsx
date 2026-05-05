@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import clsx from "clsx";
-import { BarChart3, ClipboardList, Crown, LayoutDashboard, LogOut, Users2 } from "lucide-react";
+import { BarChart3, ClipboardList, Crown, LayoutDashboard, LogOut, Users2, ShieldCheck } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
 import type { NavigationView, RoleValue, SessionUserSummary } from "@/lib/types";
@@ -20,48 +20,51 @@ type NavigationItem = {
 };
 
 function getNavigation(role: RoleValue): NavigationItem[] {
-  const common: NavigationItem[] = [
-    {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: LayoutDashboard,
-      href: "/?view=dashboard",
-    },
-  ];
-
-  if (role === "EMPLOYEE") {
+  // CRITICAL: HR Role MUST only see HR Dashboard
+  if (role === "HR") {
     return [
-      ...common,
       {
-        id: "my-appraisal",
-        label: "My Appraisal",
-        icon: ClipboardList,
-        href: "/?view=my-appraisal",
+        id: "hr-panel",
+        label: "HR Dashboard",
+        icon: ShieldCheck,
+        href: "/?view=hr-panel",
       },
     ];
   }
+
+  // CRITICAL: CEO Role MUST only see CEO Panel
+  if (role === "CEO") {
+    return [
+      {
+        id: "ceo-panel",
+        label: "CEO Panel",
+        icon: Crown,
+        href: "/?view=ceo-panel",
+      },
+    ];
+  }
+
+  // Managers and Employees
+  const items: NavigationItem[] = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/?view=dashboard" },
+    {
+      id: "my-appraisal",
+      label: "My Appraisal",
+      icon: ClipboardList,
+      href: "/?view=my-appraisal",
+    },
+  ];
 
   if (role === "MANAGER") {
-    return [
-      ...common,
-      {
-        id: "team-reviews",
-        label: "Team Reviews",
-        icon: Users2,
-        href: "/?view=team-reviews",
-      },
-    ];
+    items.push({
+      id: "team-reviews",
+      label: "Team Reviews",
+      icon: Users2,
+      href: "/?view=team-reviews",
+    });
   }
 
-  return [
-    ...common,
-    {
-      id: "ceo-panel",
-      label: "CEO Panel",
-      icon: Crown,
-      href: "/?view=ceo-panel",
-    },
-  ];
+  return items;
 }
 
 function roleTone(role: RoleValue) {
@@ -70,6 +73,8 @@ function roleTone(role: RoleValue) {
       return "bg-amber-100 text-amber-700";
     case "CEO":
       return "bg-emerald-100 text-emerald-700";
+    case "HR":
+      return "bg-indigo-100 text-indigo-700";
     default:
       return "bg-sky-100 text-sky-700";
   }
@@ -128,13 +133,17 @@ export function AppShell({ user, activeView, children }: AppShellProps) {
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Secure Appraisal Platform</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-              {activeView === "dashboard"
-                ? "Dashboard"
-                : activeView === "my-appraisal"
-                  ? "My Appraisal"
-                  : activeView === "team-reviews"
-                    ? "Team Reviews"
-                    : "CEO Panel"}
+              {(() => {
+                const titles: Record<string, string> = {
+                  dashboard: "Dashboard",
+                  "my-appraisal": "My Appraisal",
+                  "team-reviews": "Team Reviews",
+                  "hr-panel": "HR Dashboard",
+                  "ceo-panel": "CEO Panel",
+                };
+                const title = titles[activeView] || "Appraisal System";
+                return `${title} (v2)`; 
+              })()}
             </h1>
           </div>
 

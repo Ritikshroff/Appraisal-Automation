@@ -1,7 +1,6 @@
 import "dotenv/config";
 
 import { hash } from "bcryptjs";
-import { PrismaPg } from "@prisma/adapter-pg";
 import {
   AppraisalStatus,
   AppraisalType,
@@ -10,14 +9,7 @@ import {
   SentimentLabel,
 } from "@prisma/client";
 
-const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DIRECT_URL or DATABASE_URL is not configured.");
-}
-
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient({ log: ["error", "warn"] });
 
 const defaultPassword = "Cybermedia@123";
 
@@ -49,9 +41,9 @@ function buildSectionAnswers(employeeName: string, focus: string) {
 function buildKras(objectives: string[], managerComplete = false) {
   return objectives.map((objective, index) => ({
     objective,
-    weightage: (100 / objectives.length).toFixed(2),
-    appraiseeRating: (7.2 + index * 0.5).toFixed(2),
-    appraiserRating: managerComplete ? (7.4 + index * 0.4).toFixed(2) : null,
+    weightage: 100 / objectives.length,
+    appraiseeRating: 7.2 + index * 0.5,
+    appraiserRating: managerComplete ? 7.4 + index * 0.4 : null,
     comments: managerComplete ? `Manager comments for ${objective}.` : null,
     displayOrder: index,
   }));
@@ -153,31 +145,31 @@ async function createAppraisal({
       type,
       appraisalPeriod,
       status,
-      sectionOneAnswers: buildSectionAnswers(employeeName, sectionFocus),
+      sectionOneAnswers: JSON.stringify(buildSectionAnswers(employeeName, sectionFocus)),
       managerReview: managerComplete
-        ? {
+        ? JSON.stringify({
             comments:
               managerComment ?? `${employeeName} is delivering steadily and is ready for the next level of scope.`,
             overallRating: managerOverallRating ?? "7.80",
-          }
-        : undefined,
+          })
+        : null,
       ceoReview:
         status === AppraisalStatus.COMPLETED
-          ? {
+          ? JSON.stringify({
               comments: ceoComment ?? `${employeeName} is approved for the final cycle outcome.`,
               finalRating,
               hikePercentage,
-            }
-          : undefined,
-      managerOverallRating: managerOverallRating ?? null,
-      finalRating: finalRating ?? null,
-      hikePercentage: hikePercentage ?? null,
+            })
+          : null,
+      managerOverallRating: managerOverallRating ? parseFloat(managerOverallRating) : null,
+      finalRating: finalRating ? parseFloat(finalRating) : null,
+      hikePercentage: hikePercentage ? parseFloat(hikePercentage) : null,
       aiPerformanceSummary: summary ?? null,
       sentimentLabel: sentimentLabel ?? null,
-      sentimentScore: sentimentScore ?? null,
-      aiStrengths: strengths ?? undefined,
-      aiWeaknesses: weaknesses ?? undefined,
-      aiRiskSignals: risks ?? undefined,
+      sentimentScore: sentimentScore ? parseFloat(sentimentScore) : null,
+      aiStrengths: strengths ? JSON.stringify(strengths) : null,
+      aiWeaknesses: weaknesses ? JSON.stringify(weaknesses) : null,
+      aiRiskSignals: risks ? JSON.stringify(risks) : null,
       employeeSubmittedAt: status === AppraisalStatus.DRAFT ? null : new Date("2026-04-12T09:00:00.000Z"),
       managerSubmittedAt: managerComplete ? new Date("2026-04-16T10:00:00.000Z") : null,
       ceoSubmittedAt: status === AppraisalStatus.COMPLETED ? new Date("2026-04-22T12:00:00.000Z") : null,
@@ -211,6 +203,17 @@ async function main() {
       department: "Executive",
       designation: "Chief Executive Officer",
       role: Role.CEO,
+    },
+  });
+
+  const hr = await prisma.employee.create({
+    data: {
+      employeeCode: "HR-0001",
+      fullName: "Sanjay Mishra",
+      email: "sanjay.mishra@cmrsl.example",
+      department: "Human Resources",
+      designation: "HR Director",
+      role: Role.HR,
     },
   });
 
@@ -484,6 +487,14 @@ async function main() {
       fullName: ceo.fullName,
       role: ceo.role,
       employeeId: ceo.id,
+      teamId: null,
+      passwordHash,
+    }),
+    createUserForEmployee({
+      email: hr.email,
+      fullName: hr.fullName,
+      role: hr.role,
+      employeeId: hr.id,
       teamId: null,
       passwordHash,
     }),

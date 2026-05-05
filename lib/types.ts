@@ -5,7 +5,7 @@ export type AppraisalTypeValue = `${AppraisalType}`;
 export type AppraisalStatusValue = `${AppraisalStatus}`;
 export type SentimentLabelValue = `${SentimentLabel}`;
 
-export type NavigationView = "dashboard" | "my-appraisal" | "team-reviews" | "ceo-panel";
+export type NavigationView = "dashboard" | "my-appraisal" | "team-reviews" | "ceo-panel" | "hr-panel";
 
 export type MetricCardData = {
   label: string;
@@ -57,6 +57,12 @@ export type ActorSummary = {
   teamId: string | null;
   teamName: string | null;
   managerName: string | null;
+  finalReviewerName: string | null;
+  doj: string | null;
+  salary: number | null;
+  lastHike: number | null;
+  activeCycleName: string | null;
+  appraisalId: string | null;
 };
 
 export type TeamSummary = {
@@ -137,6 +143,8 @@ export type DashboardFilters = {
   pendingPage: number;
   teamStatusPage: number;
   topPerformersPage: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 };
 
 export type DashboardData = {
@@ -150,6 +158,19 @@ export type DashboardData = {
   teamSummary: TeamProgressRow[];
   topPerformers: PaginatedCollection<AppraisalListItem>;
   budgetImpact: BudgetImpact | null;
+  hrData?: UserManagementData | null;
+};
+
+export type SystemSettingsSummary = {
+  globalDeadlineStart: string;
+  globalDeadlineEnd: string;
+};
+
+export type UserManagementData = {
+  employees: PaginatedCollection<ActorSummary>;
+  activeCycles: CycleSummary[];
+  allTeams: TeamSummary[];
+  systemSettings: SystemSettingsSummary;
 };
 
 export type AppraisalPermissions = {
@@ -197,6 +218,7 @@ export type AppraisalDetail = {
   employeeSubmittedAt: string | null;
   managerSubmittedAt: string | null;
   ceoSubmittedAt: string | null;
+  deadlineAt: string | null;
   updatedAt: string;
 };
 

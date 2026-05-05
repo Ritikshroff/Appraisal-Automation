@@ -31,7 +31,7 @@ function formatDate(value: string | null) {
 
 export function EmployeeDashboard({ dashboardData, isLoading, onPageChange }: EmployeeDashboardProps) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+    <div className="grid gap-6">
       <DataTable title="My Appraisals" description="Track current review cycles and statuses">
         <div className="overflow-x-auto">
           <table className="min-w-full border-separate border-spacing-y-3">
@@ -77,52 +77,7 @@ export function EmployeeDashboard({ dashboardData, isLoading, onPageChange }: Em
         )}
       </DataTable>
 
-      <DataTable title="Team Status" description="Read-only visibility into your team’s progress">
-        <div className="overflow-x-auto max-h-[460px] custom-scrollbar pr-2 overflow-y-auto">
-          <table className="min-w-full border-separate border-spacing-y-3">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-[0.18em] text-slate-500">
-                <th className="pb-1 pr-4">Employee</th>
-                <th className="pb-1 pr-4">Type</th>
-                <th className="pb-1 pr-4">Status</th>
-                <th className="pb-1">Updated</th>
-              </tr>
-            </thead>
-            <tbody className={clsx("transition-opacity duration-200", isLoading && "opacity-50")}>
-              {isLoading && dashboardData.teamMemberStatuses.items.length === 0 ? (
-                Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} cols={4} />)
-              ) : dashboardData.teamMemberStatuses.items.length ? (
-                dashboardData.teamMemberStatuses.items.map((item) => (
-                  <tr key={`${item.employeeCode}-${item.appraisalType}-${item.appraisalPeriod}`} className="bg-white transition-all hover:shadow-md">
-                    <td className="rounded-l-[20px] px-4 py-4 text-sm font-medium text-slate-900">{item.employeeName}</td>
-                    <td className="px-4 py-4 text-sm text-slate-600">
-                      {item.appraisalType} · {item.appraisalPeriod}
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className={clsx("rounded-full px-3 py-1 text-xs font-medium", listStatusAccent[item.status])}>
-                        {getStatusBadgeLabel(item.status)}
-                      </span>
-                    </td>
-                    <td className="rounded-r-[20px] px-4 py-4 text-sm text-slate-600">{formatDate(item.updatedAt)}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="rounded-[20px] bg-white px-4 py-8 text-center text-sm text-slate-500">
-                    Team member statuses will appear once peers have appraisals.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        {!isLoading && (
-          <PaginationControls
-            pageInfo={dashboardData.teamMemberStatuses.pageInfo}
-            onPageChange={(page) => onPageChange({ teamStatusPage: page })}
-          />
-        )}
-      </DataTable>
+      {/* Simplified Employee view: Only showing own appraisals */}
     </div>
   );
 }

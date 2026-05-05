@@ -109,6 +109,8 @@ export function getDefaultViewForRole(role: RoleValue) {
       return "team-reviews";
     case Role.CEO:
       return "ceo-panel";
+    case Role.HR:
+      return "hr-panel";
     default:
       return "dashboard";
   }

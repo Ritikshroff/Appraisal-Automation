@@ -35,7 +35,11 @@ export async function loginAction(_: SignUpState, formData: FormData): Promise<S
       };
     }
 
-    throw error;
+    // Handle database connection errors or other fatal crashes gracefully
+    console.error("Login Action fatal error:", error);
+    return {
+      error: "The authentication service is currently unavailable. Please check your database connection.",
+    };
   }
 }
 
@@ -173,7 +177,10 @@ export async function signupAction(_: SignUpState, formData: FormData): Promise<
       };
     }
 
-    throw error;
+    console.error("Signup Action fatal error:", error);
+    return {
+      error: "The authentication service encountered a fatal error. Please check your database connection.",
+    };
   }
 }
 

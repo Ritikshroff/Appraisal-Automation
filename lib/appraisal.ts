@@ -13,13 +13,13 @@ import type {
 } from "@/lib/types";
 
 export const SECTION_ONE_QUESTIONS = [
-  "Describe your key achievements for this appraisal period.",
-  "What measurable business impact did you create?",
-  "Which responsibilities or initiatives did you own directly?",
-  "How did you collaborate with your team or cross-functional stakeholders?",
-  "Which challenges or blockers did you solve?",
-  "What skills or capabilities did you improve?",
-  "What support or focus areas do you need next cycle?",
+  "Has the past year been good/bad/satisfactory or otherwise for you, and why?",
+  "What do you consider to be your most important achievements of the past year?",
+  "What elements of your job do you find most difficult?",
+  "What elements of your job interest you the most, and least?",
+  "What action could be taken to improve your performance in your current position by you, and your boss?",
+  "What sort of training/experiences would benefit you in the next year? Not just job-skills - also your natural strengths and personal passions you'd like to develop - you and your work can benefit from these.",
+  "Mention if you have any grievances/problem/are of dissatisfaction which affect your performance.",
 ];
 
 export const DEFAULT_SKILLS = [

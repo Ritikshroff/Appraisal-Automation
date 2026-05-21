@@ -3,11 +3,16 @@
 import { hash } from "bcryptjs";
 import { Role } from "@prisma/client";
 import { AuthError } from "next-auth";
-
 import { signIn, signOut } from "@/auth";
 import type { SignUpState } from "@/lib/types";
 
 const defaultState: SignUpState = { error: null };
+
+function isRedirectError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const digest = (error as any).digest;
+  return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
+}
 
 import { prisma } from "@/lib/prisma";
 
@@ -29,6 +34,9 @@ export async function loginAction(_: SignUpState, formData: FormData): Promise<S
     });
     return defaultState;
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
     if (error instanceof AuthError) {
       return {
         error: "Invalid email or password.",
@@ -171,6 +179,9 @@ export async function signupAction(_: SignUpState, formData: FormData): Promise<
     });
     return defaultState;
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
     if (error instanceof AuthError) {
       return {
         error: "Account created, but automatic sign-in failed. Please log in manually.",
